@@ -1,0 +1,23 @@
+{
+  "name": "laser-range",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Browser-based projected dry-fire range with a paired phone camera",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test tests/*.test.js",
+    "check": "node scripts/check.js"
+  },
+  "dependencies": {
+    "three": "0.186.0",
+    "ws": "8.21.0",
+    "qrcode": "1.5.4"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.58.2"
+  }
+}

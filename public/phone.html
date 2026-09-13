@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Laser Range · Camera</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body class="phone">
+    <header>
+      <div class="brand">◈ <strong>LASER RANGE</strong></div>
+      <span class="tag">CAMERA</span>
+    </header>
+    <main>
+      <h1>Connect your view.</h1>
+      <p id="phoneNotice" role="status">
+        Pair with the host, then keep this page in the foreground.
+      </p>
+      <div class="row">
+        <label
+          >Pairing code<input
+            id="code"
+            inputmode="numeric"
+            maxlength="6"
+            placeholder="6 digits" /></label
+        ><button id="connect" class="primary">Connect</button>
+      </div>
+      <button id="startCamera">Enable rear camera</button
+      ><label
+        >Camera<select id="cameraSelect">
+          <option value="">Default rear camera</option>
+        </select></label
+      >
+      <div class="phonePreview">
+        <video id="camera" autoplay muted playsinline></video
+        ><canvas id="cornerOverlay"></canvas>
+      </div>
+      <div class="steps">
+        <section>
+          <span class="eyebrow">01 / SCREEN ALIGNMENT</span>
+          <h2>Locate the projected frame</h2>
+          <p class="hint">
+            Show calibration on the host. Tap the actual outer corners in this
+            order: top-left, top-right, bottom-right, bottom-left.
+          </p>
+          <div class="row">
+            <button id="autoCorners">Detect corner markers</button
+            ><button id="resetCorners">Reset corners</button>
+          </div>
+          <p id="cornerStatus">0 / 4 corners</p>
+        </section>
+        <section>
+          <span class="eyebrow">02 / AMBIENT LIGHT</span>
+          <h2>Learn the background</h2>
+          <label
+            >Laser color<select id="laserColor">
+              <option value="red">Red</option>
+              <option value="green">Green</option>
+            </select></label
+          ><button id="baseline">Capture 3-second baseline</button
+          ><label
+            >Sensitivity threshold<input
+              id="threshold"
+              type="range"
+              min="25"
+              max="180"
+              value="55"
+            /><span id="thresholdValue">55</span></label
+          >
+          <p class="hint">
+            Do not fire during baseline capture. Higher thresholds reject more
+            noise but may miss faint pulses.
+          </p>
+        </section>
+        <section>
+          <span class="eyebrow">03 / LASER CHECK</span>
+          <h2>Confirm three test pulses</h2>
+          <button id="test">Start pulse test</button>
+          <p id="testStatus">0 / 3 pulses detected</p>
+          <button id="arm" class="primary" disabled>Arm detection</button
+          ><button id="disarm">Disarm</button>
+        </section>
+      </div>
+      <canvas id="rectified" width="480" height="270"></canvas>
+      <p id="cameraTelemetry" class="hint">Camera not running.</p>
+      <p class="hint">
+        Keep the mount fixed and this page visible. Returning from the
+        background, changing camera/color, or losing connection requires
+        recalibration. White or clipped laser spots may not be detected.
+      </p>
+    </main>
+    <script type="module" src="/phone.js"></script>
+  </body>
+</html>

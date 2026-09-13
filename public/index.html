@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Laser Range · Range studio</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header>
+      <a class="brand" href="/"
+        >◈ <strong>LASER RANGE</strong
+        ><span class="tag">EARLY ACCESS / 0.1</span></a
+      >
+      <div class="status">
+        <i id="statusDot"></i><span id="connection">Desktop demo</span>
+      </div>
+    </header>
+    <div id="notice" role="status">
+      Open the host link printed in your terminal to connect a phone. You can
+      explore the range in demo mode.
+    </div>
+    <main class="studio">
+      <aside class="panel controls">
+        <div class="eyebrow">RANGE STUDIO</div>
+        <h1>Build. Run. Review.</h1>
+        <p class="muted">Your space. Your course of fire.</p>
+        <nav class="tabs">
+          <button data-tab="range" class="active">Range</button
+          ><button data-tab="camera">Camera</button
+          ><button data-tab="video">Video</button>
+        </nav>
+        <section id="tab-range">
+          <label
+            >Scenario name<input
+              id="scenarioName"
+              value="First light"
+              maxlength="100"
+          /></label>
+          <div class="row">
+            <label
+              >Duration · sec<input
+                id="duration"
+                type="number"
+                min="1"
+                max="600"
+                value="30" /></label
+            ><label
+              >Shooter<input id="shooter" value="Nick" maxlength="60"
+            /></label>
+          </div>
+          <div class="row">
+            <button id="addTarget">+ Target</button
+            ><button id="addBarrier">+ Barrier</button>
+          </div>
+          <label
+            >Selected object<select id="objects">
+              <option>Choose an object</option>
+            </select></label
+          >
+          <div id="properties">
+            <div class="row">
+              <label>X<input id="objX" type="number" step=".25" /></label
+              ><label>Z<input id="objZ" type="number" step=".25" /></label>
+            </div>
+            <div class="row">
+              <label
+                >Width<input
+                  id="objWidth"
+                  type="number"
+                  min=".1"
+                  max="20"
+                  step=".1" /></label
+              ><label
+                >Height<input
+                  id="objHeight"
+                  type="number"
+                  min=".1"
+                  max="10"
+                  step=".1"
+              /></label>
+            </div>
+            <div id="targetProperties">
+              <label
+                >Target role<select id="kind">
+                  <option value="shoot">Shoot · armed symbol</option>
+                  <option value="no-shoot">No-shoot · open hands</option>
+                  <option value="random">Randomize each run</option>
+                </select></label
+              >
+              <div class="row">
+                <label
+                  >Appear · sec<input id="start" type="number" min="0" /></label
+                ><label
+                  >Disappear · sec<input id="end" type="number" min="0"
+                /></label>
+              </div>
+              <label
+                >Movement speed · m/s<input
+                  id="speed"
+                  type="number"
+                  min=".1"
+                  max="15"
+                  step=".1"
+              /></label>
+              <div class="row">
+                <button id="targetPath">Draw target path</button
+                ><button id="clearPath">Clear path</button>
+              </div>
+            </div>
+            <button id="deleteObject" class="quiet danger">
+              Delete object
+            </button>
+          </div>
+          <hr />
+          <label class="check"
+            ><input id="cameraMotion" type="checkbox" /> Move viewpoint along
+            camera path</label
+          >
+          <div class="row">
+            <button id="cameraPath">Draw camera path</button
+            ><button id="clearCameraPath">Clear path</button>
+          </div>
+          <p class="hint" id="editorHint">
+            Switch to overhead to drag objects. Paths use ordered clicks on the
+            floor.
+          </p>
+          <div class="row">
+            <button id="save">Save locally</button
+            ><button id="load">Load saved</button>
+          </div>
+          <div class="row">
+            <button id="exportScenario">Share JSON</button
+            ><label class="button"
+              >Import JSON<input
+                id="importScenario"
+                type="file"
+                accept=".json,application/json"
+                hidden
+            /></label>
+          </div>
+        </section>
+        <section id="tab-camera" hidden>
+          <h2>Pair your phone</h2>
+          <p class="muted">
+            Mount the phone where the full projected frame is visible.
+          </p>
+          <label
+            >Phone-accessible host origin<input
+              id="phoneOrigin"
+              placeholder="https://192.168.1.20:8443" /></label
+          ><button id="pairLink">Update pairing link</button>
+          <div class="pairing">
+            <img id="qr" alt="Phone pairing QR code" hidden /><strong
+              id="pairCode"
+              >— — — — — —</strong
+            ><a id="phoneLink" target="_blank" rel="noreferrer"
+              >Connect phone camera</a
+            >
+          </div>
+          <button id="calibrate">Show calibration screen</button
+          ><button id="stopCalibration" hidden>Return to range</button>
+          <p class="hint">
+            On the phone: locate screen → capture baseline → fire three test
+            pulses → arm detection. Recalibrate whenever the camera, projector,
+            or lighting changes.
+          </p>
+          <p id="telemetry" class="muted">No camera telemetry yet.</p>
+          <label
+            >Display/capture latency correction · ms<input
+              id="latency"
+              type="number"
+              min="0"
+              max="1000"
+              value="100"
+              step="10"
+          /></label>
+          <p class="hint">
+            Initial estimate only. Adjust against a moving target test;
+            timestamps are approximate until measured with your hardware.
+          </p>
+        </section>
+        <section id="tab-video" hidden>
+          <h2>Video range</h2>
+          <label
+            >Upload a local video<input
+              id="videoFile"
+              type="file"
+              accept="video/*" /></label
+          ><label
+            >YouTube URL<input
+              id="youtubeUrl"
+              placeholder="https://www.youtube.com/watch?v=…" /></label
+          ><button id="loadYoutube">Load YouTube</button
+          ><button id="backTo3d">Return to 3D range</button>
+          <p class="hint">
+            Uploaded video: reference subtraction and frame review. YouTube:
+            camera snapshots and manual scoring only; browser restrictions
+            prevent access to its source pixels. Ads and embedding availability
+            depend on YouTube.
+          </p>
+          <button id="playVideo">Play / pause video</button>
+        </section>
+      </aside>
+      <section class="workspace">
+        <div class="workspacebar">
+          <div>
+            <span class="eyebrow" id="viewLabel"
+              >PERSPECTIVE / LIVE PREVIEW</span
+            >
+            <h2 id="sceneTitle">First light</h2>
+          </div>
+          <div class="row compact">
+            <button id="viewToggle">Overhead editor</button
+            ><button id="fullscreen">Projector</button>
+          </div>
+        </div>
+        <div id="stage">
+          <canvas id="range"></canvas
+          ><video id="movie" playsinline hidden></video>
+          <div id="youtube" hidden></div>
+          <canvas id="calibration" hidden></canvas>
+          <div id="shotOverlay"></div>
+          <div class="stageCaption" id="stageCaption">
+            01 / TRAINING HALL <span>16:9 PROJECTOR FRAME</span>
+          </div>
+          <button id="exitProjector" hidden>Exit projector</button>
+        </div>
+        <div class="runbar">
+          <label class="check"
+            ><input id="demo" type="checkbox" checked /> Demo · click to
+            shoot</label
+          ><span id="clock">00:00.00</span
+          ><button id="startRun" class="primary">▶ Start session</button
+          ><button id="stopRun" disabled>End session</button>
+        </div>
+        <div class="stats">
+          <div><span>SHOTS</span><strong id="statShots">0</strong></div>
+          <div><span>HITS</span><strong id="statHits">0</strong></div>
+          <div><span>MISSES</span><strong id="statMisses">0</strong></div>
+          <div><span>NO-SHOOT</span><strong id="statNoShoots">0</strong></div>
+          <div><span>ACCURACY</span><strong id="statAccuracy">—</strong></div>
+        </div>
+        <section class="review">
+          <div class="workspacebar">
+            <h2>Session review</h2>
+            <span id="reviewSummary" class="muted"
+              >Start a session to record shots.</span
+            >
+          </div>
+          <div id="shots" class="shotList"></div>
+        </section>
+      </section>
+    </main>
+    <dialog id="snapshotDialog">
+      <button id="closeSnapshot">Close</button>
+      <h2 id="snapshotTitle">Shot review</h2>
+      <div class="snapshot">
+        <img id="snapshotImage" alt="Shot frame" /><span id="snapshotPoint"
+          >＋</span
+        >
+      </div>
+      <p class="hint">
+        Camera capture or nearest retained source frame. A marker shows detected
+        placement; timing and geometry depend on calibration.
+      </p>
+    </dialog>
+    <footer>
+      LASER RANGE / Experimental dry-fire training software · Use a safe
+      dry-fire setup. Camera detection requires hardware validation.
+    </footer>
+    <script type="module" src="/host.js"></script>
+  </body>
+</html>

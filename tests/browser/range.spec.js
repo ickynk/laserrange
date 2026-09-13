@@ -1,0 +1,104 @@
+import { test, expect } from "@playwright/test";
+test("Editor, persistence, timed demo session, scoring and screenshot review work", async ({
+  page,
+}) => {
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.goto("/");
+  await expect(page.locator("#sceneTitle")).toHaveText("First light");
+  await page.locator("#scenarioName").fill("Qualification draft");
+  await page.locator("#scenarioName").blur();
+  await expect(page.locator("#sceneTitle")).toHaveText("Qualification draft");
+  await page.locator("#addTarget").click();
+  await expect(page.locator("#objects option")).toHaveCount(5);
+  await page.locator("#viewToggle").click();
+  await page.locator("#targetPath").click();
+  await page.locator("#range").click({ position: { x: 300, y: 200 } });
+  await page.keyboard.press("Escape");
+  await page.locator("#save").click();
+  const scenario = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem("laser-range.scenario.v1")),
+  );
+  expect(scenario.targets.at(-1).path).toHaveLength(1);
+  await page.locator("#startRun").click();
+  await expect(page.locator("#stopRun")).toBeEnabled();
+  await page.waitForTimeout(250);
+  await page.locator("#range").click({ position: { x: 30, y: 30 } });
+  await expect(page.locator("#statShots")).toHaveText("1");
+  await expect(page.locator("#statMisses")).toHaveText("1");
+  await page.locator("#stopRun").click();
+  await page.getByRole("button", { name: "View frame" }).click();
+  await expect(page.locator("#snapshotDialog")).toBeVisible();
+  await page.locator("#closeSnapshot").click();
+  await page.screenshot({
+    path: "test-results/range-studio.png",
+    fullPage: true,
+  });
+  expect(errors).toEqual([]);
+});
+test("Live mode is gated by calibration and invalid scenario imports are rejected", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.locator("#demo").uncheck();
+  await page.locator("#startRun").click();
+  await expect(page.locator("#notice")).toContainText("calibrate");
+  await expect(page.locator("#stopRun")).toBeDisabled();
+  await page
+    .locator("#importScenario")
+    .setInputFiles({
+      name: "bad.json",
+      mimeType: "application/json",
+      buffer: Buffer.from('{"version":999}'),
+    });
+  await expect(page.locator("#notice")).toContainText("Invalid");
+});
+test("Phone UI loads and rejects baseline before alignment", async ({
+  page,
+}) => {
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.goto("/phone");
+  await page.locator("#baseline").click();
+  await expect(page.locator("#phoneNotice")).toContainText("Align");
+  await expect(page.locator("#arm")).toBeDisabled();
+  expect(errors).toEqual([]);
+});
+test("3D scoring respects target visibility, barriers and no-shoot roles", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const results = await page.evaluate(async () => {
+    const { RangeScene } = await import("/range.js");
+    const THREE = await import("/vendor/three/build/three.module.js");
+    const { defaultScenario } = await import("/core/scenario.js");
+    const canvas = document.createElement("canvas"),
+      range = new RangeScene(canvas),
+      s = defaultScenario();
+    s.targets = [{ ...s.targets[0], x: 0, z: -7 }];
+    s.barriers = [];
+    range.resize(960, 540);
+    range.setScenario(s);
+    range.render(1);
+    const targetPoint = new THREE.Vector3(0, 1, -7).project(range.camera),
+      x = (targetPoint.x + 1) / 2,
+      y = (1 - targetPoint.y) / 2;
+    const hit = range.score(x, y, 1).result;
+    s.barriers = [{ id: "block", x: 0, z: 0, width: 5, height: 5, depth: 1 }];
+    range.setScenario(s);
+    const blocked = range.score(x, y, 1).result;
+    s.barriers = [];
+    s.targets[0].kind = "no-shoot";
+    range.setScenario(s);
+    const noShoot = range.score(x, y, 1).result;
+    const expired = range.score(x, y, 31).result;
+    range.renderer.dispose();
+    return { hit, blocked, noShoot, expired };
+  });
+  expect(results).toEqual({
+    hit: "hit",
+    blocked: "miss",
+    noShoot: "no-shoot",
+    expired: "miss",
+  });
+});
