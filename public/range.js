@@ -95,6 +95,7 @@ export class RangeScene {
       shoot: targetTexture("shoot"),
       "no-shoot": targetTexture("no-shoot"),
     };
+    this.impacts = [];
     this.meshes = [];
     this.raycaster = new THREE.Raycaster();
     this.ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -112,6 +113,7 @@ export class RangeScene {
     this.overhead.updateProjectionMatrix();
   }
   setScenario(s, roles = {}) {
+    this.clearImpacts();
     this.scenario = s;
     this.roles = roles;
     for (const m of this.meshes) {
@@ -194,6 +196,7 @@ export class RangeScene {
     );
     return this.raycaster.intersectObjects(
       this.meshes.filter((m) => m.visible),
+      false,
     )[0]?.object.userData.id;
   }
   floorPoint(x, y) {
@@ -215,6 +218,7 @@ export class RangeScene {
     );
     const hit = this.raycaster.intersectObjects(
       this.meshes.filter((m) => m.visible),
+      false,
     )[0];
     let result = { result: "miss", target: null };
     if (hit?.object.userData.type === "target") {
@@ -229,7 +233,51 @@ export class RangeScene {
         },
       };
     } else if (hit) result.target = "barrier";
+    if (hit) {
+      result.impact = {
+        objectId: hit.object.userData.id,
+        point: hit.object.worldToLocal(hit.point.clone()).toArray(),
+        normal: hit.face.normal.toArray(),
+      };
+    }
     this.setTime(previous);
     return result;
+  }
+  clearImpacts() {
+    for (const mark of this.impacts || []) {
+      mark.removeFromParent();
+      mark.traverse((child) => {
+        child.geometry?.dispose();
+        child.material?.dispose();
+      });
+    }
+    this.impacts = [];
+  }
+  addImpact(impact) {
+    const target = this.meshes.find((m) => m.userData.id === impact.objectId);
+    if (!target) return;
+    const mark = new THREE.Group();
+    const normal = new THREE.Vector3(...impact.normal).normalize();
+    mark.position.fromArray(impact.point).addScaledVector(normal, 0.002);
+    mark.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+    for (const [radius, color, z] of [
+      [0.035, 0xe8d8b9, 0],
+      [0.022, 0x10151c, 0.001],
+    ]) {
+      const dot = new THREE.Mesh(
+        new THREE.CircleGeometry(radius, 16),
+        new THREE.MeshBasicMaterial({
+          color,
+          side: THREE.DoubleSide,
+          polygonOffset: true,
+          polygonOffsetFactor: -1,
+          polygonOffsetUnits: -1,
+        }),
+      );
+      dot.position.z = z;
+      mark.add(dot);
+    }
+    target.add(mark);
+    this.impacts.push(mark);
   }
 }

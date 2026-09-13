@@ -44,13 +44,11 @@ test("Live mode is gated by calibration and invalid scenario imports are rejecte
   await page.locator("#startRun").click();
   await expect(page.locator("#notice")).toContainText("calibrate");
   await expect(page.locator("#stopRun")).toBeDisabled();
-  await page
-    .locator("#importScenario")
-    .setInputFiles({
-      name: "bad.json",
-      mimeType: "application/json",
-      buffer: Buffer.from('{"version":999}'),
-    });
+  await page.locator("#importScenario").setInputFiles({
+    name: "bad.json",
+    mimeType: "application/json",
+    buffer: Buffer.from('{"version":999}'),
+  });
   await expect(page.locator("#notice")).toContainText("Invalid");
 });
 test("Phone UI loads and rejects baseline before alignment", async ({
@@ -101,4 +99,64 @@ test("3D scoring respects target visibility, barriers and no-shoot roles", async
     noShoot: "no-shoot",
     expired: "miss",
   });
+});
+
+test("Impact marks follow moving target surfaces, do not intercept shots, and clear for a new session", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const result = await page.evaluate(async () => {
+    const { RangeScene } = await import("/range.js");
+    const THREE = await import("/vendor/three/build/three.module.js");
+    const { defaultScenario } = await import("/core/scenario.js");
+    const range = new RangeScene(document.createElement("canvas"));
+    const s = defaultScenario();
+    s.targets = [
+      {
+        ...s.targets[0],
+        x: 0,
+        z: -7,
+        path: [
+          { x: 0, z: -7 },
+          { x: 4, z: -7 },
+        ],
+      },
+    ];
+    s.barriers = [];
+    range.resize(960, 540);
+    range.setScenario(s);
+    range.render(0);
+    const p = new THREE.Vector3(0, 1, -7).project(range.camera),
+      x = (p.x + 1) / 2,
+      y = (1 - p.y) / 2;
+    const hit = range.score(x, y, 0);
+    range.addImpact(hit.impact);
+    const mark = range.impacts[0];
+    const before = mark.getWorldPosition(new THREE.Vector3());
+    const repeat = range.score(x, y, 0).result;
+    range.setTime(2);
+    const after = mark.getWorldPosition(new THREE.Vector3());
+    const count = range.impacts.length;
+    const attached = mark.parent === range.meshes[0];
+    range.setScenario(s);
+    const cleared = range.impacts.length;
+    range.renderer.dispose();
+    return { repeat, attached, count, dx: after.x - before.x, cleared };
+  });
+  expect(result).toEqual({
+    repeat: "hit",
+    attached: true,
+    count: 1,
+    dx: 2,
+    cleared: 0,
+  });
+  await page.locator("#startRun").click();
+  await page.waitForTimeout(250);
+  await page.locator("#range").click({ position: { x: 20, y: 20 } });
+  await page.waitForTimeout(1000);
+  await expect(page.locator(".shotMarker")).toHaveCount(1);
+  await page.locator("#stopRun").click();
+  await expect(page.locator(".shotMarker")).toHaveCount(1);
+  await page.locator("#startRun").click();
+  await expect(page.locator(".shotMarker")).toHaveCount(0);
 });

@@ -551,3 +551,14 @@ dialog::backdrop {
   margin: 0;
   font-size: 11px;
 }
+
+.shotMarker {
+  width: 5px;
+  height: 5px;
+  border: 1px solid #eadbc2;
+  background: #161c23;
+  box-shadow: none;
+}
+.shotMarker::after {
+  display: none;
+}

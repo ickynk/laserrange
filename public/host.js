@@ -571,7 +571,10 @@ function recordShot(m, demo = false) {
   marker.style.left = `${m.x * 100}%`;
   marker.style.top = `${m.y * 100}%`;
   $("shotOverlay").append(marker);
-  setTimeout(() => marker.remove(), 700);
+  if (mode === "3d" && score.impact) {
+    range.addImpact(score.impact);
+    marker.remove();
+  }
 }
 function startRun() {
   if (calibrating) return notice("Return to the range after calibration.");
@@ -586,6 +589,7 @@ function startRun() {
   started = now();
   sessionsSelect.value = "current";
   shots = [];
+  $("shotOverlay").replaceChildren();
   history = [];
   runShooter = $("shooter").value.trim() || "Shooter";
   runLatency = Math.max(0, Math.min(1000, Number($("latency").value) || 0));
@@ -650,7 +654,7 @@ $("startRun").onclick = startRun;
 $("stopRun").onclick = stopRun;
 function animate(t) {
   requestAnimationFrame(animate);
-  currentTime = running ? (now() - started) / 1000 : 0;
+  currentTime = running ? (now() - started) / 1000 : currentTime;
   range.render(currentTime);
   if (running) {
     $("clock").textContent = stamp(Math.min(currentTime, scenario.duration));
@@ -696,9 +700,45 @@ async function updatePairLink() {
   }
 }
 $("pairLink").onclick = updatePairLink;
-async function connectHost() {
-  const token = new URLSearchParams(location.hash.slice(1)).get("host");
-  if (!token) return;
+const hostKey = "laser-range.host-key";
+function hostAccess(message) {
+  $("hostAccess").hidden = false;
+  $("hostAccessStatus").textContent = message;
+  $("qr").hidden = true;
+  $("pairCode").textContent = "— — — — — —";
+  $("phoneLink").removeAttribute("href");
+  notice(message);
+}
+$("unlockHost").onclick = () => {
+  const value = $("hostCredential").value.trim();
+  let token = value;
+  try {
+    token = new URLSearchParams(new URL(value).hash.slice(1)).get("host") || "";
+  } catch {}
+  $("hostCredential").value = "";
+  if (!token)
+    return hostAccess(
+      "Paste the current host link printed by npm start, including #host=….",
+    );
+  connectHost(token);
+};
+$("qr").onerror = () =>
+  notice(
+    "QR image could not load. Use the pairing link or six-digit code below it.",
+  );
+async function connectHost(explicitToken) {
+  let saved;
+  try {
+    saved = sessionStorage.getItem(hostKey);
+  } catch {}
+  const token =
+    explicitToken ||
+    new URLSearchParams(location.hash.slice(1)).get("host") ||
+    saved;
+  if (!token)
+    return hostAccess(
+      "Phone pairing needs the current host link from your server terminal. Paste it in Camera → Host link or access key. HTTPS uses separate browser storage from HTTP.",
+    );
   historyReplace();
   try {
     const response = await fetch("/api/session", {
@@ -706,7 +746,18 @@ async function connectHost() {
       headers: { Authorization: `Bearer ${token}` },
     });
     const data = await response.json();
-    if (!response.ok) throw Error(data.error);
+    if (!response.ok) {
+      if (response.status === 401) {
+        try {
+          sessionStorage.removeItem(hostKey);
+        } catch {}
+      }
+      throw Error(data.error);
+    }
+    try {
+      sessionStorage.setItem(hostKey, token);
+    } catch {}
+    $("hostAccess").hidden = true;
     session = data;
     $("pairCode").textContent = data.code;
     $("phoneOrigin").value = data.publicOrigin || location.origin;
@@ -739,11 +790,16 @@ async function connectHost() {
         phoneReady = false;
         phoneConnected = false;
         if (running && !runDemo) stopRun();
-        notice(`${reason}. Reopen the terminal host link to reconnect.`);
+        session = null;
+        hostAccess(
+          `${reason}. Paste the current terminal host link in Camera to reconnect.`,
+        );
       })
       .on("fault", notice);
   } catch (e) {
-    notice(e.message);
+    hostAccess(
+      `${e.message} If the server restarted or HTTPS was enabled, use its newly printed host link.`,
+    );
   }
 }
 function historyReplace() {

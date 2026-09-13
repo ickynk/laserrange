@@ -142,6 +142,20 @@
         </section>
         <section id="tab-camera" hidden>
           <h2>Pair your phone</h2>
+          <div id="hostAccess" hidden>
+            <p id="hostAccessStatus" role="status">
+              Open the current host link from the server terminal, or paste it
+              below. After switching to HTTPS, use the newly printed HTTPS link.
+            </p>
+            <label
+              >Host link or access key<input
+                id="hostCredential"
+                type="password"
+                autocomplete="off"
+                placeholder="Paste the full terminal host link"
+            /></label>
+            <button id="unlockHost">Enable phone pairing</button>
+          </div>
           <p class="muted">
             Mount the phone where the full projected frame is visible.
           </p>

@@ -27,6 +27,7 @@ No build step, database, paid service, or native mobile app is needed. Dependenc
 - Experimental reference-frame subtraction, compact-blob detection, temporal pulse filtering, uncertainty flags, stale-reference handling, and readiness reset on disruption.
 - Raycast hit/miss/no-shoot scoring that accounts for barriers and historical scene time; screen position and approximate first-shot/split timing; audible start tone.
 - Uploaded-video playback with source-frame snapshots and manual scoring. YouTube IFrame playback with **phone camera snapshots**, manual scoring, and reduced-confidence detection.
+- Small persistent impact dots on targets and barriers, attached to their 3D surfaces so they follow target movement. Misses and uncertain/video events retain small screen-position dots. New sessions clear the marks.
 - Mouse-driven demo mode; turn-based shooter names and the last five completed sessions retained in memory.
 - Automated geometry, image-processing, protocol, and browser tests; GitHub Actions verification.
 

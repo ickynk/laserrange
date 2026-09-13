@@ -51,6 +51,12 @@ If you already operate a trusted HTTPS reverse proxy or tunnel, point it to `htt
 
 Do not expose the unencrypted backend directly to the internet. A tunnel requires internet access and its provider; local TLS does not. Production internet hosting and account security are outside this alpha's scope.
 
+### Missing QR code after enabling HTTPS
+
+Open the **new complete host link printed by the restarted server**, including `#host=…`. A plain HTTPS address can open the demo without authorizing camera pairing. Alternatively, open **Camera**, paste that current link into **Host link or access key**, and click **Enable phone pairing**.
+
+The app now remembers host access in the current browser tab so a refresh recreates the pairing code. HTTP and HTTPS have separate storage; a server restart changes the access key. A missing or expired key displays recovery instructions instead of silently hiding the QR code. Re-pair the phone after refreshing the host because the session/code changes. Certificate trust still must be configured on the phone.
+
 ## 3. Projector and phone alignment
 
 1. Project the host browser onto the screen/wall and mount the phone so all of the projected frame is visible. Prefer the phone's rear main camera, stable lighting, and enough contrast to see a laser dot.
