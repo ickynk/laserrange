@@ -301,6 +301,7 @@ $("importScenario").onchange = async (e) => {
 function setMode(next) {
   if (running) stopRun();
   mode = next;
+  updateShotInput();
   history = [];
   $("movie").pause();
   $("movie").hidden = next !== "upload";
@@ -374,7 +375,7 @@ $("loadYoutube").onclick = async () => {
       },
     });
     notice(
-      "YouTube mode: all shots require manual review; reference subtraction is unavailable.",
+      "YouTube mode: start a demo session to click shots. Use Play / pause video to control playback; native player controls return after End session. Shots require manual scoring.",
     );
   } catch (e) {
     notice(e.message);
@@ -393,8 +394,43 @@ $("playVideo").onclick = () => {
     else youtubePlayer?.playVideo?.();
   }
 };
+function updateShotInput() {
+  const active = running && runDemo && mode === "youtube";
+  $("videoShotInput").hidden = !active;
+  // Iframe events never bubble to the host. Capture them on a sibling surface
+  // while a demo is running, and restore native player controls afterwards.
+  $("youtube").inert = active;
+}
+$("videoShotInput").addEventListener("pointerdown", (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  if (
+    e.button !== 0 ||
+    !e.isPrimary ||
+    !running ||
+    !runDemo ||
+    mode !== "youtube"
+  )
+    return;
+  recordShot(
+    {
+      ...point(e),
+      time: now(),
+      confidence: "review",
+      videoTime: youtubePlayer?.getCurrentTime?.(),
+    },
+    true,
+  );
+});
+$("videoShotInput").addEventListener("contextmenu", (e) => e.preventDefault());
 $("stage").addEventListener("pointerdown", (e) => {
-  if (running && runDemo && mode === "upload")
+  if (
+    running &&
+    runDemo &&
+    mode === "upload" &&
+    e.target === $("movie") &&
+    e.button === 0
+  )
     recordShot({ ...point(e), time: now(), confidence: "review" }, true);
 });
 function calibrationPattern() {
@@ -594,6 +630,7 @@ function startRun() {
   runShooter = $("shooter").value.trim() || "Shooter";
   runLatency = Math.max(0, Math.min(1000, Number($("latency").value) || 0));
   runDemo = $("demo").checked;
+  updateShotInput();
   $("shots").replaceChildren();
   range.editor = false;
   $("viewLabel").textContent = "PERSPECTIVE / LIVE PREVIEW";
@@ -640,6 +677,7 @@ function startRun() {
 function stopRun() {
   const wasRunning = running;
   running = false;
+  updateShotInput();
   $("startRun").disabled = false;
   $("stopRun").disabled = true;
   $("demo").disabled = false;
@@ -816,6 +854,7 @@ projectorControls.className = "projectorControls";
 for (const [label, action] of [
   ["Start", startRun],
   ["End", stopRun],
+  ["Play / pause", () => $("playVideo").click()],
   ["Calibrate", () => $("calibrate").click()],
   ["Range", () => $("stopCalibration").click()],
 ]) {

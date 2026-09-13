@@ -6,7 +6,7 @@ Version 0.1.0, hardware-validation alpha.
 |---|---|
 | JavaScript syntax (`npm run check`) | Passed |
 | Node unit/integration suite (`npm test`) | 10 passed, 0 failed |
-| Playwright browser suite | 7 passed, 0 failed |
+| Playwright browser suite | 8 passed, 0 failed |
 | Rendered desktop interface | Screenshot inspected |
 | Physical iPhone / Android camera | Not tested |
 | TitanX / DryFireMag-associated laser | Not tested |
@@ -24,3 +24,5 @@ The unit tests cover both red and green pulses, perspective mapping, malformed c
 The physical acceptance gates in [HARDWARE-VALIDATION.md](HARDWARE-VALIDATION.md) remain required before relying on live detection or timing.
 
 Regression coverage also verifies HTTPS pairing recovery from a plain URL, QR rendering, reload persistence, and expired-key recovery using a test-only self-signed certificate. The test browser bypasses trust for this fixture only; real phones still require a trusted certificate. Impact regressions verify attachment to moving targets, repeat-shot raycasting without marker interference, persistent miss dots, and clearing on a new session.
+
+The YouTube input regression uses a controlled cross-origin iframe and a mocked player API. It verifies that demo clicks record shots without reaching player controls, right-clicks do not fire, explicit play/pause remains usable, stopping restores native interaction, and changing modes disables the capture surface. It does not verify live YouTube playback, advertisements, or service availability.

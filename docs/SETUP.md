@@ -91,3 +91,9 @@ npm start
 ```
 
 To update an existing checkout, stop the server, run `git pull --ff-only` and `npm ci`, then restart it. Commit or stash any local source edits before pulling. Never commit `certs/`, CA keys, or host-link secrets.
+
+## 6. YouTube mouse demo
+
+Load a YouTube link under **Video**, leave **Demo · click to shoot** enabled, then start a session. Left-clicks on the video now record shots and leave small marks instead of reaching the embedded player's pause control. Use **Play / pause video** in the Video panel (or **Play / pause** in fullscreen projector controls) to control playback. End the session to restore normal YouTube interaction, including seeking and player controls.
+
+YouTube demo shots require manual scoring. Without a paired phone they do not have camera snapshots; browsers do not expose embedded YouTube video pixels for source-frame capture.
