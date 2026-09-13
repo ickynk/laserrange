@@ -52,3 +52,11 @@ Barrier: unique `id`, `x`, `z`, `width`, `height`, `depth`.
 Path: array of `{x,z}` points in meters. Target motion ping-pongs; camera motion stops at its last point. Imported JSON is validated and rendered as text, never executed. Bounds are enforced for object counts, coordinates, dimensions, timing, and path length.
 
 Randomized roles resolve once per run. No tactical decision engine or real-person recognition is included. Media is selected locally or embedded through YouTube's player API and is not included in exported scenarios.
+
+## Separate projector runtime
+
+`public/projector.html` and `public/projector.js` render the actual projected image. `public/core/projection-link.js` connects the two same-origin windows with an opener-bound, nonce-checked MessagePort. No admin or camera secret is copied into the projector URL. The operator continues to own authenticated phone pairing and relays projector reference frames through the existing server channel.
+
+The operator sends validated scene changes, a single set of resolved randomized roles, start/stop, media commands, and calibration commands. Uploaded files are cloned as Blobs into the projector and get their own local object URLs. The projector owns its camera aspect ratio, frame history, elapsed scene time, surface marks, and raycast scoring; scored events return to the operator for review. Uploaded video uses the projector's retained frames for snapshots; YouTube still requires camera snapshots and manual scoring.
+
+The operator does not produce camera reference frames while the separate projector is connected. Its 3D/video preview uses the projector's normalized JPEG image. Its renderer runs only when needed for editing. Projector size changes invalidate calibration; operator layout changes do not. Heartbeats detect a lost peer after approximately 3.5 seconds; closure events stop sooner when delivered. Window minimization/backgrounding stops the relevant session. This is a same-computer two-window workflow, not a network projector client or multi-operator system.

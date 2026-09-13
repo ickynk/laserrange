@@ -213,7 +213,16 @@
             prevent access to its source pixels. Ads and embedding availability
             depend on YouTube.
           </p>
-          <button id="playVideo">Play / pause video</button>
+          <button id="playVideo">Play / pause video</button
+          ><label
+            >Seek video · seconds<input
+              id="seekTime"
+              type="number"
+              min="0"
+              value="0"
+              step="1" /></label
+          ><button id="seekVideo">Seek video</button>
+          <p id="playbackStatus" class="hint"></p>
         </section>
       </aside>
       <section class="workspace">
@@ -225,11 +234,18 @@
             <h2 id="sceneTitle">First light</h2>
           </div>
           <div class="row compact">
-            <button id="viewToggle">Overhead editor</button
+            <button id="openProjector">Open projector window</button
+            ><button id="closeProjector" hidden>Use single window</button
+            ><button id="viewToggle">Overhead editor</button
             ><button id="fullscreen">Projector</button>
           </div>
         </div>
         <div id="stage">
+          <img id="remotePreview" alt="Live projector preview" hidden />
+          <div id="remoteVideoNotice" hidden>
+            YouTube is playing in the projector window. Use the controls here;
+            click the projector image for demo shots.
+          </div>
           <canvas id="range"></canvas
           ><video id="movie" playsinline hidden></video>
           <div id="youtube" hidden></div>

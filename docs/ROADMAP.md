@@ -9,17 +9,14 @@
 - Uploaded/YouTube video workflows; approximate source-frame and camera snapshot review.
 - Hit/miss/no-shoot summaries, timing, named turn-based runs, desktop demo.
 
-## Next phase: separate operator and projector views
+## Completed: separate operator and projector views
 
-Physical laser/projector validation is deferred until the hardware is available. The next recommended software phase is to separate the clean projected range from the operator controls:
-
-1. Add a dedicated projector window that shows only the 3D range or video and impact marks.
-2. Keep scenario editing, media controls, shooter selection, start/stop, and session review on the operator's main screen.
-3. Synchronize scenario state, resolved randomized roles, playback commands, shots, and readiness between the two views. The projector view must own reference-frame capture and scoring history so calibration matches the actual projected image.
-4. Preserve calibration when changing operator panels, and stop safely when the projector closes or disconnects.
-5. Add two-window tests for moving targets, playback controls, reference delivery, and session resets before hardware validation.
-
-This phase can be tested on a computer now and will make later projector trials easier. It is proposed work, not implemented yet.
+- Dedicated clean projector window and same-origin operator connection.
+- Projector-owned rendered frame history, resolved scenario roles, hit scoring, and persistent impact marks.
+- Live projector preview for 3D scenes and uploaded video; YouTube plays only in the projector when connected.
+- Operator-side start/stop, play/pause, seek, shooter controls, calibration, and scenario editing.
+- Calibration survives operator layout changes; projector resize, closure, loss of heartbeat, or backgrounding stops the affected session and requires recalibration.
+- Paired synthetic-camera and two-window regression coverage, including an uploaded-video fixture and mocked YouTube player.
 
 ## Hardware phase: optical reliability
 

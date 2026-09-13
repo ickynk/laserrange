@@ -2,6 +2,30 @@
 
 **Status: not performed on physical hardware.** Synthetic tests do not establish real-world detection accuracy. Record results separately for each phone, laser configuration, projection distance, projector mode, and lighting condition.
 
+## First physical test session
+
+Complete this sequence with one phone, one laser configuration, and one color before comparing devices. This is a test procedure; no pass result is assumed.
+
+1. **Establish the display.** Use extended desktop, open the separate projector window, move it to the projected display, and enter fullscreen before calibration. Keep the mount and projector fixed.
+2. **Calibrate.** Pair the phone, show the calibration screen from the operator, verify all four corners, capture a no-shot baseline, and confirm three real pulses. Select **red** for your current laser setup.
+3. **Check geometry first.** Fire at separated points near the center and four corners while watching the rectified preview. Consistent offset or skew means corner alignment needs correction; do not adjust the time-delay setting to fix static spatial error.
+4. **Check detection on stationary targets.** Return to the range, disable demo mode, and fire 20 deliberately spaced pulses. Record detected count, unexpected extra detections, and any visible-but-missed pulses. Repeat at different screen areas. Proceed to the full 100-pulse gate below after the short check is stable.
+5. **Check false positives.** Run the stationary scene with no pulses for two minutes, then a moving-target scene with no pulses for two minutes. Count both scored and review-only detections. Investigate false events before measuring accuracy.
+6. **Tune moving-target timing last.** Once geometry and detection are stable, compare a target moving left and right past a known fixed screen coordinate. Adjust the operator's latency correction in 10 ms steps and repeat both directions. The 100 ms default is only a starting guess. Record residual error and repeatability.
+7. **Check recovery.** Resize the operator: calibration should remain armed. Resize or hide the projector: the session must stop and camera readiness must reset. Recalibrate after restoring the projector.
+
+Record the configuration and observations below. Begin with the TitanX, then repeat separately for the exact DryFireMag-associated laser configuration. Whether the laser pulse is long and bright enough for a given phone must be measured on that setup.
+
+### Results to bring back
+
+- Phone model, browser/OS, camera selected, reported FPS.
+- Projector model, resolution, projected width/height, camera-to-screen distance.
+- Device and laser color; pulse duration if available.
+- Threshold and latency correction used.
+- Observed pulses / detected shots / unexpected detections.
+- Whether the offset appears on stationary targets, moving targets, or both.
+- A short recording or screenshots of the rectified view and shot review, if practical.
+
 ## Record the test configuration
 
 - Phone make/model, OS, browser, selected rear camera, reported fps, mounting position.
@@ -22,7 +46,7 @@
 | Barrier scoring | Place a target behind a solid barrier and shoot its obscured position | Miss/blocked result, never a target hit |
 | Role randomization | Repeat sessions; verify the visible armed/unarmed symbol matches score | Correct classification for every displayed target |
 | Video review | Pause near a moving scene feature, fire a pulse, inspect retained source/camera frame | Placement and approximate time identifiable; mark uncertainty |
-| Disruption | Background phone, unplug camera/network, resize host, rotate phone, change camera or color | Readiness removed and recalibration required |
+| Disruption | Background phone, unplug camera/network, resize projector, rotate phone, change camera or color | Readiness removed and recalibration required |
 
 Start with long visible test pulses, then use the actual devices. If a pulse is shorter than the camera exposure interval, some missed pulses are physically unavoidable. Browser camera auto-exposure can vary during a session; reduce brightness/clipping and keep light stable. These controls do not guarantee success.
 

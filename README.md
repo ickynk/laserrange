@@ -19,6 +19,7 @@ No build step, database, paid service, or native mobile app is needed. Dependenc
 
 ## Included
 
+- Dedicated operator and projector windows, with source frames and scoring owned by the projector. Operator controls, scenario edits, video playback/seek, calibration commands, and shot review stay on the main screen.
 - Three.js 3D range with stationary and moving targets, visible armed/unarmed symbols, barriers, and viewpoint translation along an editable path.
 - Overhead drag-and-drop placement, numeric properties, target appearance windows, speed, ordered paths, and randomized armed/unarmed roles per run.
 - Scenario save/load in browser storage and versioned JSON import/export for sharing.

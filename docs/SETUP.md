@@ -57,18 +57,20 @@ Open the **new complete host link printed by the restarted server**, including `
 
 The app now remembers host access in the current browser tab so a refresh recreates the pairing code. HTTP and HTTPS have separate storage; a server restart changes the access key. A missing or expired key displays recovery instructions instead of silently hiding the QR code. Re-pair the phone after refreshing the host because the session/code changes. Certificate trust still must be configured on the phone.
 
-## 3. Projector and phone alignment
+## 3. Operator, projector, and phone alignment
 
-1. Project the host browser onto the screen/wall and mount the phone so all of the projected frame is visible. Prefer the phone's rear main camera, stable lighting, and enough contrast to see a laser dot.
-2. On the host, open **Camera** and scan its QR code. If the origin is wrong, edit **Phone-accessible host origin** and update the link. Tap **Connect** and **Enable rear camera** on the phone; allow camera permission.
-3. Click **Projector** on the computer to enter fullscreen **before calibrating**. Hover near the upper-left corner to reveal projector controls. Select **Calibrate**.
-4. On the phone, tap **Detect corner markers**. Visually verify that its outline follows the actual projected frame. If detection fails or is inaccurate, reset and tap the four outer corners: top-left, top-right, bottom-right, bottom-left. The cyan markers are inset; manual selection uses the outer screen border, not marker centers.
-5. Select red or green. Capture the three-second baseline with no shots and no one crossing the camera view.
-6. Choose **Start pulse test** and emit three distinct pulses at separated positions. Observe the rectified preview and verify that detections correspond to actual pulses. If ambient changes trigger the test counter, do not arm; recalibrate or raise the threshold and repeat the test.
-7. Tap **Arm detection**. On the host's fullscreen controls, select **Range**. Before entering fullscreen, uncheck **Demo** for a live session; if you forgot, exit fullscreen, change it, and recalibrate after re-entering.
-8. Select **Start** on the projector controls. A brief audible tone starts the timer. Move the pointer away so controls fade. **End** stops the session; exit fullscreen to review it.
+1. Set your computer's display mode to **Extend**, not Mirror/Duplicate. Open the current authenticated host URL on your main screen.
+2. Click **Open projector window**. Allow popups for this host if prompted. Move the new window onto the projector display, then click **Enter fullscreen in that window**. Wait for “Projector ready” on the operator screen.
+3. Keep the operator window on your main display. It holds the controls and shot review; the projector shows the actual training image. The operator preview for 3D/uploaded video comes from that image. YouTube displays only in the projector window to avoid duplicate playback and audio.
+4. Mount the phone so the entire projected image is visible. On the operator screen, open **Camera** and scan its QR code. On the phone, tap **Connect** and **Enable rear camera**.
+5. Click **Show calibration screen** on the operator. The pattern appears on the projector. On the phone, use **Detect corner markers**, verify the outline, or manually select the four outer corners in TL → TR → BR → BL order.
+6. Select red or green, capture the three-second baseline without firing, then start the three-pulse check. Verify each detected pulse corresponds to your actual laser and its location looks correct. Tap **Arm detection**.
+7. On the operator, select **Return to range**, uncheck **Demo · click to shoot**, select the shooter, and start the session. The projected image supplies reference frames and shot scoring. Camera processing still runs on the phone.
+8. Use the operator's **End session** to review results. For videos, **Play / pause video** and **Seek video** control the projector player. Browser autoplay may require an initial click in the projector; entering fullscreen supplies that interaction on supported browsers.
 
-The phone screen must stay awake and the camera page must remain in the foreground. Camera interruption, backgrounding, color changes, or host display resizing requires recalibration. A screen wake lock is requested where supported.
+You can switch operator tabs or resize the operator without altering the projection geometry. Use **Overhead editor** to edit the scenario between runs; the projector stays in perspective. Starting a run returns the operator to its live preview. Keep the projector visible and stationary: minimizing, resizing, closing, or disconnecting it stops the run and invalidates camera readiness. Closing/reloading the operator also stops the projector. Both windows must remain on the same computer/browser origin.
+
+The separate view is optional. **Use single window** closes it; recalibrate the newly displayed image before a live session. The original single-window fullscreen button still works when no separate projector is connected.
 
 ## 4. Tune timing and verify detection
 
@@ -94,6 +96,6 @@ To update an existing checkout, stop the server, run `git pull --ff-only` and `n
 
 ## 6. YouTube mouse demo
 
-Load a YouTube link under **Video**, leave **Demo · click to shoot** enabled, then start a session. Left-clicks on the video now record shots and leave small marks instead of reaching the embedded player's pause control. Use **Play / pause video** in the Video panel (or **Play / pause** in fullscreen projector controls) to control playback. End the session to restore normal YouTube interaction, including seeking and player controls.
+Load a YouTube link under **Video**, leave **Demo · click to shoot** enabled, then start a session. Left-clicks on the video now record shots and leave small marks instead of reaching the embedded player's pause control. Use **Play / pause video** in the operator Video panel (or **Play / pause** in the legacy single-window fullscreen controls) to control playback. End the session to restore normal YouTube interaction, including seeking and player controls.
 
 YouTube demo shots require manual scoring. Without a paired phone they do not have camera snapshots; browsers do not expose embedded YouTube video pixels for source-frame capture.

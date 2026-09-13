@@ -1,3 +1,5 @@
+import { ProjectionLink } from "./core/projection-link.js";
+import { drawCalibration } from "./core/pattern.js";
 import { RangeScene } from "./range.js";
 import { Channel } from "./core/channel.js";
 import {
@@ -33,6 +35,10 @@ let currentTime = 0,
   sessionsSelect,
   lastArchivedStart = null;
 const pastSessions = [];
+let projection,
+  uploadedFile = null,
+  mediaKey = "3d",
+  remoteElapsed = 0;
 try {
   range = new RangeScene($("range"));
   range.setScenario(scenario);
@@ -65,6 +71,7 @@ function rebuild() {
   if (!object()) selected = select.options[0]?.value;
   select.value = selected;
   properties();
+  projection?.send({ type: "scene", scenario });
 }
 function properties() {
   const t = object();
@@ -180,6 +187,7 @@ function setDrawing(kind) {
     ? `Click floor points for the ${kind} path. Press Escape to finish.`
     : "Drag objects to reposition them.";
   $("stage").classList.toggle("drawing", !!drawing);
+  projectionView();
 }
 $("targetPath").onclick = () => setDrawing("target");
 $("cameraPath").onclick = () => setDrawing("camera");
@@ -196,6 +204,7 @@ $("viewToggle").onclick = () => {
     : "PERSPECTIVE / LIVE PREVIEW";
   drawing = null;
   $("stage").classList.remove("drawing");
+  projectionView();
 };
 window.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
@@ -311,7 +320,10 @@ function setMode(next) {
   if (next !== "youtube") youtubePlayer?.pauseVideo?.();
   channel?.send({ type: "mode", mode });
 }
-$("backTo3d").onclick = () => setMode("3d");
+$("backTo3d").onclick = () => {
+  setMode("3d");
+  configureProjection();
+};
 $("videoFile").onchange = (e) => {
   const file = e.target.files[0];
   if (!file) return;
@@ -319,6 +331,9 @@ $("videoFile").onchange = (e) => {
   if (videoURL) URL.revokeObjectURL(videoURL);
   videoURL = URL.createObjectURL(file);
   $("movie").src = videoURL;
+  uploadedFile = file;
+  mediaKey = crypto.randomUUID();
+  configureProjection();
   notice(
     "Video loaded. Start a session, then use Play / pause as needed. Shots are manually scored.",
   );
@@ -374,6 +389,8 @@ $("loadYoutube").onclick = async () => {
           ),
       },
     });
+    mediaKey = crypto.randomUUID();
+    configureProjection();
     notice(
       "YouTube mode: start a demo session to click shots. Use Play / pause video to control playback; native player controls return after End session. Shots require manual scoring.",
     );
@@ -382,6 +399,10 @@ $("loadYoutube").onclick = async () => {
   }
 };
 $("playVideo").onclick = () => {
+  if (projection?.connected) {
+    projection.send({ type: "toggle-play" });
+    return;
+  }
   if (mode === "upload") {
     if ($("movie").paused)
       $("movie")
@@ -434,44 +455,7 @@ $("stage").addEventListener("pointerdown", (e) => {
     recordShot({ ...point(e), time: now(), confidence: "review" }, true);
 });
 function calibrationPattern() {
-  const c = $("calibration");
-  c.width = 960;
-  c.height = 540;
-  const x = c.getContext("2d");
-  x.fillStyle = "#202020";
-  x.fillRect(0, 0, 960, 540);
-  x.strokeStyle = "#aaa";
-  x.lineWidth = 2;
-  for (let i = 0; i <= 8; i++) {
-    x.beginPath();
-    x.moveTo(i * 120, 0);
-    x.lineTo(i * 120, 540);
-    x.stroke();
-  }
-  for (let i = 0; i <= 4; i++) {
-    x.beginPath();
-    x.moveTo(0, i * 135);
-    x.lineTo(960, i * 135);
-    x.stroke();
-  }
-  x.strokeStyle = "white";
-  x.lineWidth = 6;
-  x.strokeRect(3, 3, 954, 534);
-  x.fillStyle = "white";
-  x.textAlign = "center";
-  x.font = "bold 24px sans-serif";
-  x.fillText("ALIGN → BASELINE → THREE TEST PULSES", 480, 246);
-  x.font = "17px sans-serif";
-  x.fillText("Keep phone and projector fixed", 480, 281);
-  for (const [px, py] of [
-    [0.035, 0.035],
-    [0.965, 0.035],
-    [0.965, 0.965],
-    [0.035, 0.965],
-  ]) {
-    x.fillStyle = "#00ffff";
-    x.fillRect(px * 960 - 10, py * 540 - 10, 20, 20);
-  }
+  drawCalibration($("calibration"));
 }
 $("calibrate").onclick = () => {
   if (running) stopRun();
@@ -479,15 +463,23 @@ $("calibrate").onclick = () => {
   $("calibration").hidden = false;
   $("stopCalibration").hidden = false;
   calibrationPattern();
+  projection?.send({ type: "calibration", active: true });
   channel?.send({ type: "pattern", active: true });
 };
 $("stopCalibration").onclick = () => {
   calibrating = false;
   $("calibration").hidden = true;
   $("stopCalibration").hidden = true;
+  projection?.send({ type: "calibration", active: false });
   channel?.send({ type: "pattern", active: false });
 };
 $("fullscreen").onclick = async () => {
+  if (projection?.connected) {
+    projection.window.focus();
+    return notice(
+      "Use Enter fullscreen in the projector window before calibration.",
+    );
+  }
   range.editor = false;
   $("viewLabel").textContent = "PERSPECTIVE / LIVE PREVIEW";
   $("viewToggle").textContent = "Overhead editor";
@@ -500,8 +492,8 @@ $("fullscreen").onclick = async () => {
 $("exitProjector").onclick = () => document.exitFullscreen();
 document.addEventListener("fullscreenchange", () => {
   $("exitProjector").hidden = !document.fullscreenElement;
-  if (running) stopRun();
-  if (phoneConnected) {
+  if (running && !projection?.connected) stopRun();
+  if (phoneConnected && !projection?.connected) {
     phoneReady = false;
     channel?.send({ type: "reset" });
     notice(
@@ -512,7 +504,12 @@ document.addEventListener("fullscreenchange", () => {
 let previousSize = "";
 const observer = new ResizeObserver(() => {
   const size = `${$("stage").clientWidth}x${$("stage").clientHeight}`;
-  if (previousSize && size !== previousSize && phoneConnected) {
+  if (
+    previousSize &&
+    size !== previousSize &&
+    phoneConnected &&
+    !projection?.connected
+  ) {
     phoneReady = false;
     channel?.send({ type: "reset" });
     if (running && !runDemo) stopRun();
@@ -572,6 +569,10 @@ function addShotRow(shot) {
 }
 function recordShot(m, demo = false) {
   if (!running || demo !== runDemo) return;
+  if (projection?.connected) {
+    projection.send({ type: "shot", runId: started, shot: m, demo });
+    return;
+  }
   const capture = m.time - (demo ? 0 : runLatency);
   if (capture < started) return;
   const elapsed = (capture - started) / 1000;
@@ -595,6 +596,9 @@ function recordShot(m, demo = false) {
     demo,
     image: mode === "youtube" ? m.image : h?.image || m.image,
   };
+  acceptShot(shot);
+}
+function acceptShot(shot) {
   shots.push(shot);
   if (shots.length > 500) {
     shots.shift();
@@ -604,15 +608,17 @@ function recordShot(m, demo = false) {
   updateStats();
   const marker = document.createElement("span");
   marker.className = "shotMarker";
-  marker.style.left = `${m.x * 100}%`;
-  marker.style.top = `${m.y * 100}%`;
+  marker.style.left = `${shot.x * 100}%`;
+  marker.style.top = `${shot.y * 100}%`;
   $("shotOverlay").append(marker);
-  if (mode === "3d" && score.impact) {
-    range.addImpact(score.impact);
+  if (mode === "3d" && shot.impact) {
+    range.addImpact(shot.impact);
     marker.remove();
   }
 }
 function startRun() {
+  if (projection?.opening || (projection?.connected && !projection.ready))
+    return notice("Wait for the projector to finish loading before starting.");
   if (calibrating) return notice("Return to the range after calibration.");
   if (!$("demo").checked && !phoneReady)
     return notice("Pair and calibrate the phone before a live session.");
@@ -646,17 +652,30 @@ function startRun() {
           : "no-shoot"
         : t.kind;
   range.setScenario(scenario, roles);
+  projectionView();
+  if (projection?.connected)
+    projection.send({
+      type: "start",
+      scenario,
+      roles,
+      started,
+      runId: started,
+      demo: runDemo,
+      latency: runLatency,
+      shooter: runShooter,
+    });
   $("startRun").disabled = true;
   $("stopRun").disabled = false;
   $("demo").disabled = true;
   channel?.send({ type: "mode", mode });
-  if (mode === "upload") {
+  if (mode === "upload" && !projection?.connected) {
     $("movie").currentTime = 0;
     $("movie")
       .play()
       .catch((e) => notice(e.message));
   }
-  if (mode === "youtube") youtubePlayer?.playVideo?.();
+  if (mode === "youtube" && !projection?.connected)
+    youtubePlayer?.playVideo?.();
   try {
     const audio = new AudioContext(),
       osc = audio.createOscillator(),
@@ -677,6 +696,7 @@ function startRun() {
 function stopRun() {
   const wasRunning = running;
   running = false;
+  if (wasRunning) projection?.send({ type: "stop" });
   updateShotInput();
   $("startRun").disabled = false;
   $("stopRun").disabled = true;
@@ -692,13 +712,18 @@ $("startRun").onclick = startRun;
 $("stopRun").onclick = stopRun;
 function animate(t) {
   requestAnimationFrame(animate);
-  currentTime = running ? (now() - started) / 1000 : currentTime;
-  range.render(currentTime);
+  currentTime = projection?.connected
+    ? remoteElapsed
+    : running
+      ? (now() - started) / 1000
+      : currentTime;
+  if (!projection?.connected || range.editor) range.render(currentTime);
   if (running) {
     $("clock").textContent = stamp(Math.min(currentTime, scenario.duration));
     if (currentTime >= scenario.duration) stopRun();
   }
   lastRender = t;
+  if (projection?.connected) return;
   if (t - lastFrame < 90) return;
   lastFrame = t;
   let drawable = null;
@@ -845,7 +870,7 @@ function historyReplace() {
 }
 connectHost();
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden && running) stopRun();
+  if (document.hidden && running && !projection?.connected) stopRun();
 });
 
 // Controls remain reachable while the projector owns the fullscreen display.
@@ -906,3 +931,113 @@ sessionsSelect.onchange = () => {
   });
   updateStats();
 };
+
+function invalidateProjection(message) {
+  phoneReady = false;
+  channel?.send({ type: "reset" });
+  if (running) stopRun();
+  notice(message);
+}
+function projectionView() {
+  const active = !!projection?.connected;
+  $("closeProjector").hidden = !active;
+  $("openProjector").textContent = active
+    ? "Focus projector"
+    : "Open projector window";
+  $("remotePreview").hidden =
+    !active || mode === "youtube" || (mode === "3d" && range.editor);
+  $("remoteVideoNotice").hidden = !active || mode !== "youtube";
+  $("viewToggle").disabled = false;
+  if (active) {
+    $("movie").pause();
+    youtubePlayer?.pauseVideo?.();
+  }
+}
+function configureProjection() {
+  if (!projection?.connected) return;
+  projection.ready = false;
+  projectionView();
+  projection.send({
+    type: "configure",
+    scenario,
+    mode,
+    file: mode === "upload" ? uploadedFile : null,
+    mediaKey,
+    youtubeId: youtubeId($("youtubeUrl").value),
+    calibrating,
+    offset: channel?.offset || 0,
+  });
+}
+function onProjectionMessage(m) {
+  if (m.type === "connected") {
+    invalidateProjection(
+      "Projector connected. Move it to the projector display, enter fullscreen, then calibrate the phone.",
+    );
+    configureProjection();
+  }
+  if (m.type === "ready") {
+    projection.ready = true;
+    notice(
+      "Projector ready. Calibrate its image before starting a live camera session.",
+    );
+  }
+  if (m.type === "reference") {
+    remoteElapsed = m.elapsed;
+    $("remotePreview").src = m.image;
+    if (phoneConnected) channel?.send(m);
+  }
+  if (m.type === "tick") {
+    remoteElapsed = m.elapsed;
+    if (running)
+      $("clock").textContent = stamp(Math.min(m.elapsed, scenario.duration));
+    $("playbackStatus").textContent =
+      m.mode === "3d"
+        ? ""
+        : `${m.playing ? "Playing" : "Paused"} · ${Number(m.videoTime).toFixed(1)} sec · projector`;
+  }
+  if (m.type === "scored-shot" && running && m.runId === started)
+    acceptShot(m.shot);
+  if (m.type === "ended" && running && m.runId === started) stopRun();
+  if (m.type === "geometry-changed")
+    invalidateProjection(
+      m.reason || "Projector size changed. Recalibrate the phone.",
+    );
+  if (m.type === "projector-offline")
+    projection.disconnect("Projector closed. Reopen it and recalibrate.");
+  if (m.type === "error") {
+    projection.ready = m.ready === true;
+    invalidateProjection(m.message);
+  }
+}
+projection = new ProjectionLink(onProjectionMessage, (message) => {
+  projectionView();
+  history = [];
+  invalidateProjection(message);
+});
+$("openProjector").onclick = () => {
+  if (running) return notice("End the session before opening the projector.");
+  if (!projection.open())
+    notice(
+      "Allow popups for this host, then click Open projector window again.",
+    );
+};
+$("closeProjector").onclick = () =>
+  projection.disconnect(
+    "Using the single-window display. Recalibrate this view before a live session.",
+  );
+$("remotePreview").onpointerdown = (e) => {
+  if (!running || !runDemo || e.button !== 0) return;
+  recordShot({ ...point(e), time: now(), confidence: "high" }, true);
+};
+$("seekVideo").onclick = () => {
+  const time = Number($("seekTime").value);
+  if (!Number.isFinite(time) || time < 0) return;
+  if (projection.connected) return projection.send({ type: "seek", time });
+  if (mode === "upload" && Number.isFinite($("movie").duration))
+    $("movie").currentTime = Math.min(time, $("movie").duration);
+  if (mode === "youtube") youtubePlayer?.seekTo?.(time, true);
+};
+setInterval(
+  () => projection.send({ type: "clock", offset: channel?.offset || 0 }),
+  3000,
+);

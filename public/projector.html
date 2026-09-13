@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Laser Range · Projector</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body class="projectorPage">
+    <div id="projectorStage">
+      <canvas id="display"></canvas
+      ><video id="media" playsinline hidden></video>
+      <div id="youtubeDisplay" hidden></div>
+      <div
+        id="projectorInput"
+        hidden
+        aria-label="Click to record demo shot"
+      ></div>
+      <canvas id="pattern" hidden></canvas>
+      <div id="impacts"></div>
+    </div>
+    <div id="projectorSetup">
+      <button id="enterFullscreen">Enter fullscreen</button
+      ><span
+        >Move this window to the projector first. Run calibration after entering
+        fullscreen.</span
+      >
+    </div>
+    <div id="projectorError" role="status" hidden></div>
+    <script type="module" src="/projector.js"></script>
+  </body>
+</html>

@@ -571,3 +571,90 @@ dialog::backdrop {
   touch-action: none;
   user-select: none;
 }
+
+.projectorPage {
+  margin: 0;
+  overflow: hidden;
+  background: black;
+}
+#projectorStage {
+  position: fixed;
+  inset: 0;
+  background: black;
+  isolation: isolate;
+}
+#projectorStage > canvas,
+#projectorStage > video,
+#youtubeDisplay,
+#projectorInput,
+#impacts {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+#media {
+  object-fit: contain;
+  background: black;
+}
+#youtubeDisplay iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+#projectorInput {
+  z-index: 4;
+  cursor: crosshair;
+  touch-action: none;
+}
+#pattern {
+  z-index: 5;
+}
+#impacts {
+  z-index: 6;
+  pointer-events: none;
+}
+#projectorSetup {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #141a22;
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+#projectorError {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  right: 20px;
+  z-index: 12;
+  padding: 15px;
+  background: #331e20;
+  color: #ffe0df;
+}
+#remotePreview,
+#remoteVideoNotice {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 3;
+}
+#remotePreview {
+  object-fit: contain;
+  background: black;
+}
+#remoteVideoNotice {
+  background: #141a22;
+  color: #b6c0cf;
+  padding: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}

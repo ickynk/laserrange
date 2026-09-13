@@ -6,7 +6,7 @@ Version 0.1.0, hardware-validation alpha.
 |---|---|
 | JavaScript syntax (`npm run check`) | Passed |
 | Node unit/integration suite (`npm test`) | 10 passed, 0 failed |
-| Playwright browser suite | 8 passed, 0 failed |
+| Playwright browser suite | 13 passed, 0 failed |
 | Rendered desktop interface | Screenshot inspected |
 | Physical iPhone / Android camera | Not tested |
 | TitanX / DryFireMag-associated laser | Not tested |
@@ -26,3 +26,5 @@ The physical acceptance gates in [HARDWARE-VALIDATION.md](HARDWARE-VALIDATION.md
 Regression coverage also verifies HTTPS pairing recovery from a plain URL, QR rendering, reload persistence, and expired-key recovery using a test-only self-signed certificate. The test browser bypasses trust for this fixture only; real phones still require a trusted certificate. Impact regressions verify attachment to moving targets, repeat-shot raycasting without marker interference, persistent miss dots, and clearing on a new session.
 
 The YouTube input regression uses a controlled cross-origin iframe and a mocked player API. It verifies that demo clicks record shots without reaching player controls, right-clicks do not fire, explicit play/pause remains usable, stopping restores native interaction, and changing modes disables the capture surface. It does not verify live YouTube playback, advertisements, or service availability.
+
+Two-window regression coverage includes 3D shot scoring and projector-owned review frames, operator layout changes, scene/path editing, session resets, projector closure, uploaded-video Blob transfer and seeking, and YouTube control routing. A generated four-second WebM test pattern is included at `tests/fixtures/projector.webm`. The paired synthetic-camera flow also runs through the separate projector and verifies that operator resizing preserves readiness while projector resizing revokes it. Physical projector/camera/laser accuracy remains unmeasured.

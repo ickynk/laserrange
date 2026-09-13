@@ -339,7 +339,9 @@ $("test").onclick = () => {
   ready(false);
   testCount = 0;
   testing = true;
-  detector.previous = null;
+  // Seed onset detection with the latest aligned frame so an immediate first
+  // test pulse is not consumed as the detector's initial background.
+  detector.previous = new Uint8ClampedArray(out.data);
   $("arm").disabled = true;
   $("testStatus").textContent = "0 / 3 pulses detected";
   notify(
