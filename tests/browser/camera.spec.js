@@ -28,7 +28,7 @@ for (const separate of [false, true])
         await expect(page.locator("#notice")).toContainText("Projector ready");
       }
       await page.locator("[data-tab=camera]").click();
-      await page.locator("#calibrate").click();
+
       await phone.addInitScript(() => {
         const canvas = document.createElement("canvas");
         canvas.width = 960;
@@ -74,8 +74,13 @@ for (const separate of [false, true])
       await expect(phone.locator("#phoneNotice")).toContainText(
         "Camera running",
       );
-      await phone.waitForTimeout(600);
-      await phone.locator("#autoCorners").click();
+      await phone.locator("#showPattern").click();
+      await expect(
+        (projector || page).locator(separate ? "#pattern" : "#calibration"),
+      ).toBeVisible();
+      await expect(phone.locator("#alignmentStatus")).toContainText(
+        "Automatically aligned",
+      );
       await expect(phone.locator("#cornerStatus")).toContainText("aligned");
       await phone.locator("#baseline").click();
       await expect(phone.locator("#phoneNotice")).toContainText(
@@ -100,7 +105,10 @@ for (const separate of [false, true])
         );
         await expect(phone.locator("#arm")).toHaveText("Detection armed");
       }
-      await page.locator("#stopCalibration").click();
+      await phone.locator("#hidePattern").click();
+      await expect(
+        (projector || page).locator(separate ? "#pattern" : "#calibration"),
+      ).toBeHidden();
       // A calibrated phone must select live input without a hidden demo toggle.
       await expect(page.locator("#demo")).not.toBeChecked();
       await expect(phone.locator("#phoneNotice")).toContainText(

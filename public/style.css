@@ -663,3 +663,25 @@ dialog::backdrop {
 html {
   scrollbar-gutter: stable;
 }
+
+#alignmentViewport {
+  overflow: hidden;
+  touch-action: none;
+  cursor: crosshair;
+}
+#alignmentImage {
+  position: relative;
+  width: 100%;
+  transform-origin: 0 0;
+}
+#alignmentImage video {
+  display: block;
+  width: 100%;
+}
+#alignmentViewport.panning {
+  cursor: grab;
+}
+#zoomLevel {
+  align-self: center;
+  text-align: center;
+}

@@ -864,6 +864,9 @@ async function connectHost(explicitToken) {
         if (m.connected && !m.ready) channel.send({ type: "mode", mode });
         if (!m.ready && running && !runDemo) stopRun();
       })
+      .on("calibration-request", (m) => {
+        $(m.active ? "calibrate" : "stopCalibration").click();
+      })
       .on("sensitivity", (m) => {
         phoneAdjusting = m.active;
         if (phoneReady)

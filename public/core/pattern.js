@@ -1,3 +1,4 @@
+import { markerCenters } from "./corners.js";
 export function drawCalibration(c) {
   c.width = 960;
   c.height = 540;
@@ -27,13 +28,10 @@ export function drawCalibration(c) {
   x.fillText("ALIGN → BASELINE → THREE TEST PULSES", 480, 246);
   x.font = "17px sans-serif";
   x.fillText("Keep phone and projector fixed", 480, 281);
-  for (const [px, py] of [
-    [0.035, 0.035],
-    [0.965, 0.035],
-    [0.965, 0.965],
-    [0.035, 0.965],
-  ]) {
+  for (const [px, py] of markerCenters) {
     x.fillStyle = "#00ffff";
-    x.fillRect(px * 960 - 10, py * 540 - 10, 20, 20);
+    x.fillRect(px * 960 - 12, py * 540 - 12, 24, 24);
+    x.fillStyle = "#101010";
+    x.fillRect(px * 960 - 5, py * 540 - 5, 10, 10);
   }
 }

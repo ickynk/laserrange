@@ -207,6 +207,8 @@ export function createRangeServer({
           send(session.phone, m);
         }
       } else {
+        if (m.type === "calibration-request" && typeof m.active === "boolean")
+          send(session.host, { type: "calibration-request", active: m.active });
         if (m.type === "sensitivity")
           send(session.host, {
             type: "sensitivity",

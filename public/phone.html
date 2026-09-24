@@ -31,22 +31,48 @@
           <option value="">Default rear camera</option>
         </select></label
       >
-      <div class="phonePreview">
-        <video id="camera" autoplay muted playsinline></video
-        ><canvas id="cornerOverlay"></canvas>
+      <div class="row">
+        <button id="showPattern">Show calibration &amp; auto-align</button>
+        <button id="hidePattern">Return projector to range</button>
       </div>
+      <p id="alignmentStatus" role="status">
+        Show the pattern to align automatically, or select corners manually.
+        Showing calibration ends any running session.
+      </p>
+      <div class="phonePreview" id="alignmentViewport">
+        <div id="alignmentImage">
+          <video id="camera" autoplay muted playsinline></video
+          ><canvas id="cornerOverlay"></canvas>
+        </div>
+      </div>
+      <div class="row">
+        <button id="zoomOut" aria-label="Zoom out">−</button>
+        <output id="zoomLevel">1.0×</output>
+        <button id="zoomIn" aria-label="Zoom in">+</button>
+        <button id="fitImage">Fit image</button>
+      </div>
+      <label class="check"
+        ><input id="panImage" type="checkbox" /> Pan only (no corner
+        placement)</label
+      >
+      <p class="hint">
+        Pinch or use +/− to zoom. Drag to pan; tap to place corners. Preview
+        zoom does not change camera alignment.
+      </p>
       <div class="steps">
         <section>
           <span class="eyebrow">01 / SCREEN ALIGNMENT</span>
           <h2>Locate the projected frame</h2>
           <p class="hint">
-            Show calibration on the host. Tap the actual outer corners in this
-            order: top-left, top-right, bottom-right, bottom-left.
+            Use Show calibration &amp; auto-align above. Verify the detected
+            outline. If automatic alignment fails, tap the actual outer corners
+            in this order: top-left, top-right, bottom-right, bottom-left.
           </p>
           <div class="row">
-            <button id="autoCorners">Detect corner markers</button
+            <button id="autoCorners">Retry automatic alignment</button
             ><button id="resetCorners">Reset corners</button>
           </div>
+          <button id="undoCorner">Undo last corner</button>
           <p id="cornerStatus">0 / 4 corners</p>
         </section>
         <section>

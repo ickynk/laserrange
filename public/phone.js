@@ -1,3 +1,5 @@
+import { detectCorners } from "./core/corners.js";
+import { alignmentView } from "./core/alignment-view.js";
 import { Channel } from "./core/channel.js";
 import {
   homography,
@@ -5,7 +7,6 @@ import {
   validQuad,
   warpMap,
   warp,
-  project,
 } from "./core/geometry.js";
 import { LaserDetector, chooseReference } from "./core/detector.js";
 const $ = (id) => document.getElementById(id),
@@ -45,7 +46,14 @@ let channel,
   adaptingUntil = 0,
   adaptationFrames = [],
   validatedThreshold = 55,
-  detectedShots = 0;
+  detectedShots = 0,
+  autoUntil = 0,
+  autoLast = 0,
+  autoCandidate = null,
+  autoStable = 0,
+  patternActive = false,
+  autoRequested = false,
+  patternTimer;
 $("code").value = new URLSearchParams(location.hash.slice(1)).get("code") || "";
 history.replaceState(null, "", location.pathname);
 function ready(value) {
@@ -54,6 +62,7 @@ function ready(value) {
   $("arm").textContent = value ? "Detection armed" : "Arm detection";
 }
 function invalidate(reason, { keepCorners = false } = {}) {
+  autoUntil = 0;
   ready(false);
   adaptingUntil = 0;
   channel?.send({ type: "sensitivity", active: false });
@@ -101,7 +110,23 @@ $("connect").onclick = () => {
         refreshSensitivity();
       }
     })
-    .on("pattern", refreshSensitivity)
+    .on("pattern", (m) => {
+      clearTimeout(patternTimer);
+      patternActive = m.active === true;
+      if (!patternActive) {
+        autoUntil = 0;
+        autoRequested = false;
+        $("alignmentStatus").textContent =
+          "Projector returned to range. Screen alignment retained.";
+      }
+      refreshSensitivity();
+      if (patternActive && autoRequested) {
+        if (stream) beginAuto();
+        else
+          $("alignmentStatus").textContent =
+            "Pattern shown. Enable the camera to align automatically.";
+      }
+    })
     .on("reset", (m) => {
       if (m.preserveAlignment) refreshSensitivity();
       else invalidate("Display source changed. Align the new projected frame.");
@@ -177,6 +202,7 @@ async function startCamera() {
       "Camera running. Show the host calibration screen, then locate its four corners.",
     );
     drawCorners();
+    if (patternActive && autoRequested) beginAuto();
     const generation = loopGeneration;
     const next = () => {
       if (generation !== loopGeneration) return;
@@ -233,14 +259,12 @@ function applyCorners() {
   drawCorners();
   notify("Screen aligned. Capture a baseline without firing.");
 }
-$("cornerOverlay").onpointerdown = (e) => {
-  if (!stream) return;
+function placeCorner(point) {
+  if (!stream) return notify("Enable the camera first.");
+  autoUntil = 0;
+  autoRequested = false;
   if (corners.length === 4) invalidate(null);
-  const r = $("cornerOverlay").getBoundingClientRect();
-  corners.push([
-    (e.clientX - r.left) / r.width,
-    (e.clientY - r.top) / r.height,
-  ]);
+  corners.push(point);
   if (corners.length === 4)
     try {
       applyCorners();
@@ -248,94 +272,100 @@ $("cornerOverlay").onpointerdown = (e) => {
       notify(error.message);
     }
   drawCorners();
-};
-$("resetCorners").onclick = () =>
+  $("alignmentStatus").textContent = mapping
+    ? "Manually aligned. Verify the outline, then capture a baseline."
+    : `Tap corner ${corners.length + 1}: top-left → top-right → bottom-right → bottom-left.`;
+}
+const alignment = alignmentView($("alignmentViewport"), $("alignmentImage"), {
+  onPoint: placeCorner,
+  onZoom: (scale) => ($("zoomLevel").textContent = `${scale.toFixed(1)}×`),
+});
+$("zoomIn").onclick = () => alignment.zoom(1.4);
+$("zoomOut").onclick = () => alignment.zoom(1 / 1.4);
+$("fitImage").onclick = () => alignment.fit();
+$("panImage").onchange = () => alignment.setPan($("panImage").checked);
+$("resetCorners").onclick = () => {
+  autoRequested = false;
   invalidate("Tap the four outer screen corners.");
-$("autoCorners").onclick = () => {
+  $("alignmentStatus").textContent =
+    "Manual alignment: tap top-left, top-right, bottom-right, bottom-left. Zoom and pan as needed.";
+};
+$("undoCorner").onclick = () => {
+  const remaining = corners.slice(0, -1);
+  autoRequested = false;
+  invalidate();
+  corners = remaining;
+  drawCorners();
+  $("alignmentStatus").textContent =
+    "Last corner removed. Tap its corrected position.";
+};
+function beginAuto() {
   if (!stream) return notify("Enable the camera first.");
   invalidate();
+  autoRequested = false;
+  autoUntil = performance.now() + 5000;
+  autoLast = 0;
+  autoStable = 0;
+  autoCandidate = null;
+  $("alignmentStatus").textContent =
+    "Finding four cyan corner rings. Keep the camera steady…";
+}
+function requestPattern(active) {
+  if (!connected) return notify("Connect to the host first.");
+  autoRequested = active;
+  autoUntil = 0;
+  channel.send({ type: "calibration-request", active });
+  $("alignmentStatus").textContent = active
+    ? "Requesting calibration screen…"
+    : "Returning projector to range…";
+  clearTimeout(patternTimer);
+  patternTimer = setTimeout(() => {
+    autoRequested = false;
+    $("alignmentStatus").textContent =
+      "No response from the host. Check the operator connection and try again.";
+  }, 5000);
+}
+$("showPattern").onclick = () => requestPattern(true);
+$("hidePattern").onclick = () => requestPattern(false);
+$("autoCorners").onclick = () =>
+  patternActive ? beginAuto() : requestPattern(true);
+function tryAuto(time) {
+  if (!autoUntil || time - autoLast < 180) return;
+  autoLast = time;
+  if (time > autoUntil) {
+    autoUntil = 0;
+    $("alignmentStatus").textContent =
+      "Automatic alignment could not find a stable pattern. Use Reset corners, zoom and pan, then tap the four outer corners; or retry.";
+    return;
+  }
   captureCtx.drawImage($("camera"), 0, 0, capture.width, capture.height);
-  const data = captureCtx.getImageData(
-      0,
-      0,
+  try {
+    const found = detectCorners(
+      captureCtx.getImageData(0, 0, capture.width, capture.height).data,
       capture.width,
       capture.height,
-    ).data,
-    w = capture.width,
-    h = capture.height,
-    mask = new Uint8Array(w * h),
-    groups = [];
-  for (let p = 0; p < mask.length; p++) {
-    const i = p * 4;
-    if (
-      data[i + 1] > 130 &&
-      data[i + 2] > 130 &&
-      data[i + 1] - data[i] > 55 &&
-      data[i + 2] - data[i] > 55
-    )
-      mask[p] = 1;
-  }
-  for (let p = 0; p < mask.length; p++)
-    if (mask[p]) {
-      const stack = [p];
-      mask[p] = 0;
-      let n = 0,
-        x = 0,
-        y = 0;
-      while (stack.length) {
-        const q = stack.pop(),
-          qx = q % w;
-        n++;
-        x += qx;
-        y += Math.floor(q / w);
-        for (const z of [q - 1, q + 1, q - w, q + w])
-          if (
-            z >= 0 &&
-            z < mask.length &&
-            mask[z] &&
-            Math.abs((z % w) - qx) <= 1
-          ) {
-            mask[z] = 0;
-            stack.push(z);
-          }
-      }
-      if (n >= 5 && n < w * h * 0.015)
-        groups.push({ x: x / n / w, y: y / n / h, n });
+    );
+    const stable =
+      autoCandidate &&
+      found.every(
+        (p, i) =>
+          Math.hypot(p[0] - autoCandidate[i][0], p[1] - autoCandidate[i][1]) <
+          0.006,
+      );
+    autoStable = stable ? autoStable + 1 : 1;
+    autoCandidate = found;
+    if (autoStable >= 3) {
+      corners = found;
+      applyCorners();
+      autoUntil = 0;
+      $("alignmentStatus").textContent =
+        "Automatically aligned. Verify the outline matches the outer screen, then capture a baseline. Use Reset corners to correct manually.";
     }
-  const candidates = groups.sort((a, b) => b.n - a.n).slice(0, 4);
-  if (candidates.length !== 4)
-    return notify(
-      "Could not isolate four cyan markers. Tap the screen corners manually.",
-    );
-  candidates.sort((a, b) => a.y - b.y);
-  const top = candidates.slice(0, 2).sort((a, b) => a.x - b.x),
-    bottom = candidates.slice(2).sort((a, b) => b.x - a.x);
-  const ordered = [...top, ...bottom].map((p) => [p.x, p.y]);
-  try {
-    const h = homography(
-      [
-        [0.035, 0.035],
-        [0.965, 0.035],
-        [0.965, 0.965],
-        [0.035, 0.965],
-      ],
-      ordered,
-    );
-    corners = unitCorners.map(([u, v]) => project(h, u, v));
-    if (corners.some((p) => p.some((v) => v < -0.005 || v > 1.005)))
-      throw Error("Screen is partly out of frame.");
-    corners = corners.map((p) => p.map((v) => Math.max(0, Math.min(1, v))));
-    applyCorners();
-    notify(
-      "Markers found. Verify the outline matches the outer screen before capturing baseline.",
-    );
-  } catch (e) {
-    corners = [];
-    mapping = null;
-    drawCorners();
-    notify(`${e.message} Select corners manually.`);
+  } catch {
+    autoStable = 0;
+    autoCandidate = null;
   }
-};
+}
 $("laserColor").onchange = () => {
   detector.color = $("laserColor").value;
   invalidate("Laser color changed. Capture a new baseline and test pulses.", {
@@ -406,6 +436,7 @@ function processFrame() {
     );
     return;
   }
+  tryAuto(performance.now());
   frameCount++;
   const clock = channel?.now() ?? Date.now();
   if (mapping) {
