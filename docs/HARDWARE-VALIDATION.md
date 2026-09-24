@@ -12,7 +12,7 @@ Complete this sequence with one phone, one laser configuration, and one color be
 4. **Check detection on stationary targets.** Return to the range, disable demo mode, and fire 20 deliberately spaced pulses. Record detected count, unexpected extra detections, and any visible-but-missed pulses. Repeat at different screen areas. Proceed to the full 100-pulse gate below after the short check is stable.
 5. **Check false positives.** Run the stationary scene with no pulses for two minutes, then a moving-target scene with no pulses for two minutes. Count both scored and review-only detections. Investigate false events before measuring accuracy.
 6. **Tune moving-target timing last.** Once geometry and detection are stable, compare a target moving left and right past a known fixed screen coordinate. Adjust the operator's latency correction in 10 ms steps and repeat both directions. The 100 ms default is only a starting guess. Record residual error and repeatability.
-7. **Check recovery.** Resize the operator: calibration should remain armed. Resize or hide the projector: the session must stop and camera readiness must reset. Recalibrate after restoring the projector.
+7. **Check recovery.** Resize the operator: calibration should remain armed. Resize the projector while keeping its physical outer frame fixed: alignment and the pulse check should remain valid, sensitivity refreshes automatically, and subsequent shots should register. Hide the projector: the session must stop and readiness must reset. Explicitly reset corners if the physical projected frame or camera moves.
 
 Record the configuration and observations below. Begin with the TitanX, then repeat separately for the exact DryFireMag-associated laser configuration. Whether the laser pulse is long and bright enough for a given phone must be measured on that setup.
 
@@ -46,10 +46,14 @@ Record the configuration and observations below. Begin with the TitanX, then rep
 | Barrier scoring | Place a target behind a solid barrier and shoot its obscured position | Miss/blocked result, never a target hit |
 | Role randomization | Repeat sessions; verify the visible armed/unarmed symbol matches score | Correct classification for every displayed target |
 | Video review | Pause near a moving scene feature, fire a pulse, inspect retained source/camera frame | Placement and approximate time identifiable; mark uncertainty |
-| Disruption | Background phone, unplug camera/network, resize projector, rotate phone, change camera or color | Readiness removed and recalibration required |
+| Disruption | Background phone, unplug camera/network, rotate phone, change camera or color | Readiness removed and recalibration required |
 
 Start with long visible test pulses, then use the actual devices. If a pulse is shorter than the camera exposure interval, some missed pulses are physically unavoidable. Browser camera auto-exposure can vary during a session; reduce brightness/clipping and keep light stable. These controls do not guarantee success.
 
 For timing validation, use a repeatable non-firearm light stimulus at a fixed screen coordinate and a recorded moving target crossing that point. A second high-frame-rate recording can establish ground truth. Change the latency setting in 10 ms increments and test both motion directions. Until measured, treat timer and moving-target scores as approximate.
 
 If these gates fail, keep live sessions labeled experimental. Prioritize recorded real-camera fixtures, exposure control where supported, higher-resolution spot detection, a robust photometric model, and visible frame-code synchronization before claiming reliability.
+
+## Regression check after first hardware feedback
+
+The first user test detected all three calibration pulses but reported no session shots and repeated screen-change resets. The software now automatically selects live input after arming, retains alignment for fixed-frame display/content changes, and refreshes sensitivity without repeating test pulses. Repeat 20 spaced shots after returning to the range, then after switching video/3D modes and starting a second session. Compare the phone live-detection counter with session totals. Do not fire during the automatic adjustment notice. These fixes have synthetic coverage; this hardware retest is still pending.

@@ -40,6 +40,14 @@ export class LaserDetector {
     this.previous = null;
     return this.threshold;
   }
+  // Keep automatically measured sensitivity within the threshold proven by
+  // the user's pulse check. Motion must not make a validated laser invisible.
+  adapt(frames, validatedThreshold) {
+    this.calibrate(frames, this.color);
+    this.threshold = Math.min(this.threshold, validatedThreshold);
+    this.previous = new Uint8ClampedArray(frames.at(-1));
+    return this.threshold;
+  }
   // Fit the projector/camera chroma response using a known white reference.
   photometric(camera, reference) {
     let sum = 0,

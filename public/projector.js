@@ -329,7 +329,6 @@ new ResizeObserver(() => {
   range.resize(w, h);
   history = [];
   if (size && size !== next) {
-    stop();
     send({ type: "geometry-changed", width: w, height: h });
   }
   size = next;

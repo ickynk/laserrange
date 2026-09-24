@@ -68,7 +68,9 @@
             /><span id="thresholdValue">55</span></label
           >
           <p class="hint">
-            Do not fire during baseline capture. Higher thresholds reject more
+            Scene changes automatically refresh sensitivity without resetting
+            corners or repeating the pulse check. Hold fire while adjusting. Do
+            not fire during baseline capture. Higher thresholds reject more
             noise but may miss faint pulses.
           </p>
         </section>
@@ -84,9 +86,11 @@
       <canvas id="rectified" width="480" height="270"></canvas>
       <p id="cameraTelemetry" class="hint">Camera not running.</p>
       <p class="hint">
-        Keep the mount fixed and this page visible. Returning from the
-        background, changing camera/color, or losing connection requires
-        recalibration. White or clipped laser spots may not be detected.
+        Keep the mount and projected outer frame fixed and this page visible.
+        Reset corners if either physically moves; resizing assumes the same
+        outer frame. Returning from the background, changing camera/color, or
+        losing connection requires recalibration. White or clipped laser spots
+        may not be detected.
       </p>
     </main>
     <script type="module" src="/phone.js"></script>

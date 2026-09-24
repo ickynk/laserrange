@@ -658,3 +658,8 @@ dialog::backdrop {
   justify-content: center;
   text-align: center;
 }
+
+/* Shot review growth must not change the calibrated display width. */
+html {
+  scrollbar-gutter: stable;
+}

@@ -101,16 +101,61 @@ for (const separate of [false, true])
         await expect(phone.locator("#arm")).toHaveText("Detection armed");
       }
       await page.locator("#stopCalibration").click();
-      await page.locator("#demo").uncheck();
+      // A calibrated phone must select live input without a hidden demo toggle.
+      await expect(page.locator("#demo")).not.toBeChecked();
+      await expect(phone.locator("#phoneNotice")).toContainText(
+        "sensitivity updated",
+      );
+      await expect(page.locator("#connection")).toHaveText("Camera calibrated");
       await page.locator("#startRun").click();
       await phone.waitForTimeout(400);
       await pulse();
       await expect(page.locator("#statShots")).toHaveText("1");
       await expect(page.locator("#statMisses")).toHaveText("1");
-      if (separate) {
-        await projector.setViewportSize({ width: 1000, height: 650 });
-        await expect(phone.locator("#arm")).not.toHaveText("Detection armed");
-      }
+      const aligned = await phone.locator("#cornerStatus").textContent();
+      await (projector || page).setViewportSize({ width: 1000, height: 650 });
+      await expect(phone.locator("#phoneNotice")).toContainText(
+        "Adjusting sensitivity",
+      );
+      await expect(phone.locator("#phoneNotice")).toContainText(
+        "sensitivity updated",
+      );
+      await expect(phone.locator("#arm")).toHaveText("Detection armed");
+      await expect(phone.locator("#cornerStatus")).toHaveText(aligned);
+      await expect(phone.locator("#testStatus")).toHaveText(
+        "3 / 3 pulses detected",
+      );
+      await pulse();
+      await expect(page.locator("#statShots")).toHaveText("2");
+      // A second session reuses alignment and the pulse check.
+      await page.locator("#stopRun").click();
+      await page.locator("#startRun").click();
+      await phone.waitForTimeout(400);
+      await pulse();
+      await expect(page.locator("#statShots")).toHaveText("1");
+      await page.locator("#stopRun").click();
+      await page.locator("[data-tab=video]").click();
+      await page
+        .locator("#videoFile")
+        .setInputFiles("tests/fixtures/projector.webm");
+      await expect(phone.locator("#phoneNotice")).toContainText(
+        "Adjusting sensitivity",
+      );
+      await expect(phone.locator("#phoneNotice")).toContainText(
+        "sensitivity updated",
+      );
+      await page.locator("#backTo3d").click();
+      // Wait for the new mode's automatic refresh, not the previous notice.
+      await phone.waitForTimeout(1500);
+      await expect(page.locator("#connection")).toHaveText("Camera calibrated");
+      await expect(phone.locator("#cornerStatus")).toHaveText(aligned);
+      await expect(phone.locator("#testStatus")).toHaveText(
+        "3 / 3 pulses detected",
+      );
+      await page.locator("#startRun").click();
+      await phone.waitForTimeout(400);
+      await pulse();
+      await expect(page.locator("#statShots")).toHaveText("1");
       await phone.evaluate(() => {
         Object.defineProperty(document, "hidden", {
           configurable: true,

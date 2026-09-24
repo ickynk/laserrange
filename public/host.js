@@ -22,6 +22,7 @@ let scenario = defaultScenario(),
   shots = [],
   history = [],
   phoneReady = false,
+  phoneAdjusting = false,
   phoneConnected = false,
   calibrating = false,
   videoURL = null,
@@ -72,6 +73,7 @@ function rebuild() {
   select.value = selected;
   properties();
   projection?.send({ type: "scene", scenario });
+  if (phoneReady) channel?.send({ type: "reset", preserveAlignment: true });
 }
 function properties() {
   const t = object();
@@ -319,6 +321,8 @@ function setMode(next) {
   $("stageCaption").hidden = next !== "3d";
   if (next !== "youtube") youtubePlayer?.pauseVideo?.();
   channel?.send({ type: "mode", mode });
+  // A different file can keep the same mode but needs a fresh background.
+  if (phoneReady) channel?.send({ type: "reset", preserveAlignment: true });
 }
 $("backTo3d").onclick = () => {
   setMode("3d");
@@ -492,12 +496,10 @@ $("fullscreen").onclick = async () => {
 $("exitProjector").onclick = () => document.exitFullscreen();
 document.addEventListener("fullscreenchange", () => {
   $("exitProjector").hidden = !document.fullscreenElement;
-  if (running && !projection?.connected) stopRun();
   if (phoneConnected && !projection?.connected) {
-    phoneReady = false;
-    channel?.send({ type: "reset" });
+    channel?.send({ type: "reset", preserveAlignment: true });
     notice(
-      "Display geometry changed. Recalibrate the phone before a live session.",
+      "Display updated. Fixed screen alignment retained; sensitivity adjusts automatically. Reset corners if the projected frame moved.",
     );
   }
 });
@@ -510,10 +512,10 @@ const observer = new ResizeObserver(() => {
     phoneConnected &&
     !projection?.connected
   ) {
-    phoneReady = false;
-    channel?.send({ type: "reset" });
-    if (running && !runDemo) stopRun();
-    notice("Projector frame resized. Recalibrate the phone.");
+    channel?.send({ type: "reset", preserveAlignment: true });
+    notice(
+      "Display updated. Alignment retained; sensitivity adjusts automatically. Reset corners if the projected frame moved.",
+    );
   }
   previousSize = size;
   range.resize($("stage").clientWidth, $("stage").clientHeight);
@@ -568,7 +570,14 @@ function addShotRow(shot) {
   $("shots").prepend(row);
 }
 function recordShot(m, demo = false) {
-  if (!running || demo !== runDemo) return;
+  if (!running) return;
+  if (demo !== runDemo) {
+    if (!demo)
+      notice(
+        "Camera pulse received, but this session uses mouse demo input. End it, uncheck Demo, and start a live session.",
+      );
+    return;
+  }
   if (projection?.connected) {
     projection.send({ type: "shot", runId: started, shot: m, demo });
     return;
@@ -620,6 +629,10 @@ function startRun() {
   if (projection?.opening || (projection?.connected && !projection.ready))
     return notice("Wait for the projector to finish loading before starting.");
   if (calibrating) return notice("Return to the range after calibration.");
+  if (!$("demo").checked && phoneAdjusting)
+    return notice(
+      "Camera is adjusting sensitivity automatically. Hold fire and start when Camera calibrated returns.",
+    );
   if (!$("demo").checked && !phoneReady)
     return notice("Pair and calibrate the phone before a live session.");
   try {
@@ -831,8 +844,17 @@ async function connectHost(explicitToken) {
         notice("Host ready. Open Camera to pair a phone, or start a demo."),
       )
       .on("phone-status", (m) => {
+        const newlyArmed = m.ready && !phoneReady;
         phoneConnected = m.connected;
         phoneReady = m.ready;
+        if (!m.ready) phoneAdjusting = false;
+        if (newlyArmed) {
+          if (running && runDemo) stopRun();
+          $("demo").checked = false;
+          notice(
+            "Camera calibrated. Live camera input selected; start a session to record laser shots.",
+          );
+        }
         $("connection").textContent = m.ready
           ? "Camera calibrated"
           : m.connected
@@ -842,12 +864,19 @@ async function connectHost(explicitToken) {
         if (m.connected && !m.ready) channel.send({ type: "mode", mode });
         if (!m.ready && running && !runDemo) stopRun();
       })
+      .on("sensitivity", (m) => {
+        phoneAdjusting = m.active;
+        if (phoneReady)
+          $("connection").textContent = m.active
+            ? "Camera adjusting · hold fire"
+            : "Camera calibrated";
+      })
       .on("shot", (m) => recordShot(m))
       .on(
         "telemetry",
         (m) =>
           ($("telemetry").textContent =
-            `${m.fps.toFixed(0)} fps · reference age ${Math.round(m.referenceAge)} ms · ${m.tests} test pulses`),
+            `${m.fps.toFixed(0)} fps · reference age ${Math.round(m.referenceAge)} ms · ${m.tests} test pulses · ${m.detections || 0} live detections${m.adapting ? " · adjusting sensitivity — hold fire" : ""}`),
       )
       .on("closed", (reason) => {
         phoneReady = false;
@@ -978,7 +1007,9 @@ function onProjectionMessage(m) {
   if (m.type === "ready") {
     projection.ready = true;
     notice(
-      "Projector ready. Calibrate its image before starting a live camera session.",
+      phoneReady
+        ? "Projector ready. Camera alignment retained."
+        : "Projector ready. Calibrate its image before starting a live camera session.",
     );
   }
   if (m.type === "reference") {
@@ -998,10 +1029,15 @@ function onProjectionMessage(m) {
   if (m.type === "scored-shot" && running && m.runId === started)
     acceptShot(m.shot);
   if (m.type === "ended" && running && m.runId === started) stopRun();
-  if (m.type === "geometry-changed")
-    invalidateProjection(
-      m.reason || "Projector size changed. Recalibrate the phone.",
-    );
+  if (m.type === "geometry-changed") {
+    if (m.reason) invalidateProjection(m.reason);
+    else {
+      channel?.send({ type: "reset", preserveAlignment: true });
+      notice(
+        "Projector updated. Fixed screen alignment retained; sensitivity adjusts automatically. Reset corners if the projected frame moved.",
+      );
+    }
+  }
   if (m.type === "projector-offline")
     projection.disconnect("Projector closed. Reopen it and recalibrate.");
   if (m.type === "error") {

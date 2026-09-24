@@ -184,3 +184,19 @@ test("Pending detections excluded from accuracy; no-shoot hits are penalized; sp
   assert.equal(s.first, 1);
   assert.deepEqual(s.splits, [1, 1]);
 });
+
+test("Automatic background adaptation preserves tested sensitivity and detects the next pulse", () => {
+  for (const color of ["red", "green"]) {
+    const d = new LaserDetector(w, h);
+    d.color = color;
+    const blank = frame();
+    const motion = frame([[20, 20, 20]], color);
+    assert.ok(
+      d.adapt(
+        Array.from({ length: 12 }, (_, i) => (i % 2 ? blank : motion)),
+        40,
+      ) <= 40,
+    );
+    assert.equal(d.detect(frame([[40, 30]], color), blank, 200).length, 1);
+  }
+});

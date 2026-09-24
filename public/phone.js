@@ -41,7 +41,11 @@ let channel,
   loopGeneration = 0,
   wakeLock = null,
   lastReferenceAge = 0,
-  connected = false;
+  connected = false,
+  adaptingUntil = 0,
+  adaptationFrames = [],
+  validatedThreshold = 55,
+  detectedShots = 0;
 $("code").value = new URLSearchParams(location.hash.slice(1)).get("code") || "";
 history.replaceState(null, "", location.pathname);
 function ready(value) {
@@ -51,6 +55,9 @@ function ready(value) {
 }
 function invalidate(reason, { keepCorners = false } = {}) {
   ready(false);
+  adaptingUntil = 0;
+  channel?.send({ type: "sensitivity", active: false });
+  adaptationFrames = [];
   baselineDone = false;
   testing = false;
   testCount = 0;
@@ -66,6 +73,17 @@ function invalidate(reason, { keepCorners = false } = {}) {
   }
   if (reason) notify(reason);
 }
+// Background changes do not change the fixed camera-to-screen mapping.
+function refreshSensitivity() {
+  referenceHistory = [];
+  if (!mapping || !baselineDone || testing) return;
+  adaptingUntil = performance.now() + 900;
+  channel?.send({ type: "sensitivity", active: true });
+  adaptationFrames = [];
+  notify(
+    "Screen alignment retained. Adjusting sensitivity automatically; hold fire briefly.",
+  );
+}
 $("connect").onclick = () => {
   if (channel) channel.ws.close();
   connected = false;
@@ -78,10 +96,16 @@ $("connect").onclick = () => {
     })
     .on("reference", receiveReference)
     .on("mode", (m) => {
-      mode = m.mode;
-      referenceHistory = [];
+      if (mode !== m.mode) {
+        mode = m.mode;
+        refreshSensitivity();
+      }
     })
-    .on("reset", () => invalidate("Host display changed. Recalibrate."))
+    .on("pattern", refreshSensitivity)
+    .on("reset", (m) => {
+      if (m.preserveAlignment) refreshSensitivity();
+      else invalidate("Display source changed. Align the new projected frame.");
+    })
     .on("closed", (m) => {
       connected = false;
       invalidate(m);
@@ -354,6 +378,7 @@ $("arm").onclick = () => {
       "Connect, align, capture baseline, and detect three test pulses first.",
     );
   testing = false;
+  validatedThreshold = detector.threshold;
   ready(true);
   notify(
     "Detection armed. Return the host to its range, then start a live session.",
@@ -413,6 +438,24 @@ function processFrame() {
         }
         baselineFrames = [];
       }
+    } else if (adaptingUntil) {
+      adaptationFrames.push(new Uint8ClampedArray(out.data));
+      if (adaptationFrames.length > 30) adaptationFrames.shift();
+      if (performance.now() >= adaptingUntil && adaptationFrames.length >= 10) {
+        detector.adapt(adaptationFrames, validatedThreshold);
+        const ref = chooseReference(out.data, referenceHistory, clock);
+        if (ref) detector.photometric(out.data, ref.data);
+        $("threshold").value = detector.threshold;
+        $("thresholdValue").textContent = detector.threshold;
+        adaptingUntil = 0;
+        channel?.send({ type: "sensitivity", active: false });
+        adaptationFrames = [];
+        notify(
+          armed
+            ? "Detection armed. Screen alignment retained; sensitivity updated."
+            : "Sensitivity updated. Screen alignment retained.",
+        );
+      }
     } else if (testing || armed) {
       const ref =
         mode === "youtube"
@@ -437,8 +480,10 @@ function processFrame() {
               "Three pulses detected. Verify placement, then arm detection.",
             );
           }
-        } else if (armed)
+        } else if (armed) {
+          detectedShots++;
           channel?.send({ type: "shot", ...hit, time: clock, image });
+        }
       }
     }
   }
@@ -447,12 +492,14 @@ function processFrame() {
     lastTelemetry = performance.now();
     frameCount = 0;
     $("cameraTelemetry").textContent =
-      `${Math.round(fps)} fps · ${detector.color} · ${armed ? "ARMED" : "disarmed"} · source reference ${lastReferenceAge >= 9999 ? "unavailable" : Math.round(lastReferenceAge) + " ms"}`;
+      `${Math.round(fps)} fps · ${detector.color} · ${adaptingUntil ? "ADJUSTING" : armed ? "ARMED" : "disarmed"} · ${detectedShots} live detections · source reference ${lastReferenceAge >= 9999 ? "unavailable" : Math.round(lastReferenceAge) + " ms"}`;
     channel?.send({
       type: "telemetry",
       fps,
       referenceAge: lastReferenceAge,
       tests: testCount,
+      detections: detectedShots,
+      adapting: !!adaptingUntil,
     });
   }
 }

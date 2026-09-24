@@ -207,6 +207,11 @@ export function createRangeServer({
           send(session.phone, m);
         }
       } else {
+        if (m.type === "sensitivity")
+          send(session.host, {
+            type: "sensitivity",
+            active: m.active === true,
+          });
         if (m.type === "ready") {
           session.ready = m.ready === true;
           send(session.host, {
@@ -247,6 +252,8 @@ export function createRangeServer({
             fps: Number(m.fps) || 0,
             referenceAge: Number(m.referenceAge) || 0,
             tests: Number(m.tests) || 0,
+            detections: Number(m.detections) || 0,
+            adapting: m.adapting === true,
           });
       }
     });
