@@ -26,10 +26,14 @@
 4. Add robust photometric response estimation, exposure/white-balance controls where browser capabilities permit, and a continuous calibration health check.
 5. Measure precision/recall and false-event rates against the hardware acceptance plan. Tune the classifier using recordings; do not optimize only against synthetic dots.
 
-## Product polish after validation
+## Completed: scenario and session controls
 
-- Better target assets and configurable scoring zones, target repeat schedules, movement easing, editable camera speed/heading.
-- Session countdown, configurable beep, and fuller shooter comparison.
+- Original procedural car/pillar/fence/window/highway assets and illustrated target variants.
+- Configurable scoring zones and points, repeat schedules, movement easing, camera speed/heading.
+- Synchronized countdown, configurable operator beep, and per-shooter comparisons grouped by scenario/settings and input.
+- Balanced/Strict/Sensitive video confirmation profiles with rejection diagnostics; physical recall validation remains pending.
+
+## Product polish after validation
 - Installer/launcher that simplifies HTTPS and device onboarding without requiring a native phone app.
 - More portable scenario/media packages; account-based sharing only if desired later.
 - Multi-shooter simultaneous attribution requires distinguishing optical signals or dedicated hardware; ordinary same-color dots are insufficient.

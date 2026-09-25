@@ -101,9 +101,77 @@ export function validateScenario(s) {
       throw Error("Invalid target timing, type, speed, or path.");
   for (const b of s.barriers)
     if (!finite(b.depth, 0.1, 10)) throw Error("Invalid barrier depth.");
+  if (
+    !finite(s.cameraSpeed ?? 0.6, 0.1, 15) ||
+    !finite(s.cameraHeading ?? 0, -180, 180) ||
+    !["fixed", "path"].includes(s.cameraHeadingMode ?? "fixed")
+  )
+    throw Error("Invalid camera movement settings.");
+  for (const t of s.targets) {
+    if (
+      !targetAssets.includes(t.asset ?? "silhouette") ||
+      !["linear", "smooth"].includes(t.easing ?? "linear")
+    )
+      throw Error("Invalid target asset/easing.");
+    if (
+      !finite(t.repeatEvery ?? 0, 0, 600) ||
+      (t.repeatEvery &&
+        !finite(t.visibleFor ?? t.repeatEvery, 0.1, t.repeatEvery))
+    )
+      throw Error("Repeat visibility must fit within the repeat interval.");
+    if (
+      t.zones !== undefined &&
+      (!Array.isArray(t.zones) || t.zones.length > 12)
+    )
+      throw Error("At most 12 scoring zones per target.");
+    for (const z of t.zones || []) {
+      if (
+        !z ||
+        typeof z.name !== "string" ||
+        !z.name.trim() ||
+        z.name.length > 30 ||
+        !["rectangle", "ellipse"].includes(z.shape) ||
+        !finite(z.x, 0, 1) ||
+        !finite(z.y, 0, 1) ||
+        !finite(z.width, 0.02, 1) ||
+        !finite(z.height, 0.02, 1) ||
+        z.x - z.width / 2 < -1e-8 ||
+        z.x + z.width / 2 > 1 + 1e-8 ||
+        z.y - z.height / 2 < -1e-8 ||
+        z.y + z.height / 2 > 1 + 1e-8 ||
+        !finite(z.points, 0, 100)
+      )
+        throw Error("Invalid scoring zone: keep it inside the target.");
+    }
+  }
+  for (const b of s.barriers)
+    if (
+      !barrierAssets.includes(b.asset ?? "block") ||
+      !finite(b.rotation ?? 0, -180, 180)
+    )
+      throw Error("Invalid barrier asset/rotation.");
+  if (
+    s.session !== undefined &&
+    (!s.session || typeof s.session !== "object" || Array.isArray(s.session))
+  )
+    throw Error("Invalid session settings.");
+  const o = s.session || {};
+  if (
+    !finite(o.countdown ?? 0, 0, 15) ||
+    typeof (o.beep ?? true) !== "boolean" ||
+    !finite(o.frequency ?? 880, 200, 2000) ||
+    !finite(o.volume ?? 0.08, 0, 0.3) ||
+    !finite(o.beepDuration ?? 0.12, 0.05, 1)
+  )
+    throw Error("Invalid countdown/audio settings.");
   return structuredClone(s);
 }
-export function pathPosition(path, distance, pingPong = true) {
+export function pathPosition(
+  path,
+  distance,
+  pingPong = true,
+  easing = "linear",
+) {
   if (!path.length) return null;
   if (path.length === 1) return { ...path[0] };
   const lengths = path
@@ -116,7 +184,8 @@ export function pathPosition(path, distance, pingPong = true) {
     : Math.min(total, Math.max(0, distance));
   for (let i = 0; i < lengths.length; i++) {
     if (d <= lengths[i] && lengths[i] > 0) {
-      const f = d / lengths[i];
+      let f = d / lengths[i];
+      if (easing === "smooth") f = f * f * (3 - 2 * f);
       return {
         x: path[i].x + (path[i + 1].x - path[i].x) * f,
         z: path[i].z + (path[i + 1].z - path[i].z) * f,
@@ -128,7 +197,12 @@ export function pathPosition(path, distance, pingPong = true) {
 }
 export function targetPosition(t, time) {
   return (
-    pathPosition(t.path, Math.max(0, time - t.start) * t.speed) || {
+    pathPosition(
+      t.path,
+      Math.max(0, time - t.start) * t.speed,
+      true,
+      t.easing,
+    ) || {
       x: t.x,
       z: t.z,
     }
@@ -146,10 +220,88 @@ export function summarize(shots) {
     misses,
     noShoots,
     pending: shots.length - confirmed.length,
+    points: confirmed.reduce(
+      (sum, s) => sum + (s.result === "hit" ? (s.points ?? 1) : 0),
+      0,
+    ),
+    zones: confirmed
+      .filter((s) => s.result === "hit" && s.zone)
+      .reduce((out, s) => ({ ...out, [s.zone]: (out[s.zone] || 0) + 1 }), {}),
     accuracy: confirmed.length
       ? Math.round((hits / confirmed.length) * 100)
       : 0,
     first: times[0] ?? null,
     splits: times.slice(1).map((t, i) => t - times[i]),
   };
+}
+
+export const barrierAssets = [
+  "block",
+  "car",
+  "pillar",
+  "fence",
+  "window",
+  "highway",
+];
+export const targetAssets = [
+  "silhouette",
+  "cardboard",
+  "bullseye",
+  "mannequin",
+];
+export function targetActive(t, time) {
+  if (time < t.start || time >= t.end) return false;
+  if (!t.repeatEvery) return true;
+  return (time - t.start) % t.repeatEvery < (t.visibleFor ?? t.repeatEvery);
+}
+export function zoneScore(target, local) {
+  for (const z of target.zones || []) {
+    const dx = (local.x - z.x) / (z.width / 2),
+      dy = (local.y - z.y) / (z.height / 2);
+    if (
+      z.shape === "ellipse"
+        ? dx * dx + dy * dy <= 1
+        : Math.abs(dx) <= 1 && Math.abs(dy) <= 1
+    )
+      return { zone: z.name, points: z.points };
+  }
+  return { zone: null, points: target.zones?.length ? 0 : 1 };
+}
+export function compareSessions(sessions) {
+  const groups = new Map();
+  for (const s of sessions) {
+    // Exact scenario/settings and input mode must match for an honest comparison.
+    const key = JSON.stringify([s.scenarioKey, s.mode, s.demo, s.shooter]);
+    if (!groups.has(key))
+      groups.set(key, {
+        shooter: s.shooter,
+        scenarioKey: s.scenarioKey,
+        scenario: s.scenarioName,
+        mode: s.mode,
+        demo: s.demo,
+        runs: 0,
+        shots: [],
+        summaries: [],
+      });
+    const g = groups.get(key);
+    g.runs++;
+    g.shots.push(...s.shots);
+    g.summaries.push(summarize(s.shots));
+  }
+  return [...groups.values()].map((g) => {
+    const stats = summarize(g.shots),
+      firsts = g.summaries.map((s) => s.first).filter((t) => t !== null);
+    const splits = g.summaries.flatMap((s) => s.splits);
+    return {
+      ...g,
+      ...stats,
+      averageFirst: firsts.length
+        ? firsts.reduce((a, b) => a + b, 0) / firsts.length
+        : null,
+      averageSplit: splits.length
+        ? splits.reduce((a, b) => a + b, 0) / splits.length
+        : null,
+      bestPoints: Math.max(...g.summaries.map((s) => s.points)),
+    };
+  });
 }

@@ -128,7 +128,7 @@ There is no fixed 35-second camera disconnect timer. The default scenario durati
 
 ### Video false positives and faint pulses
 
-The phone now confirms that a video candidate is a short flash before registering it. Persistent red/green areas, moving highlights and large scene changes are filtered. Shot timing and review frames use the original onset even though the marker appears after the pulse ends. **Maximum video pulse · ms** defaults to 350; increase it if your actual device pulse lasts longer. This guard applies to video, not the static calibration/zeroing screens.
+The phone now confirms that a video candidate is a short flash before registering it. Persistent red/green areas, moving highlights and large scene changes are filtered. Shot timing and review frames use the original onset even though the marker appears after the pulse ends. **Maximum video pulse · ms** defaults to 600; increase it if your actual device pulse lasts longer. This guard applies to video, not the static calibration/zeroing screens.
 
 Prefer an uploaded file for the strongest filtering: the camera can subtract the known source image, including projector/camera color differences. Uploaded-video detection waits if source frames become stale. YouTube does not expose source pixels; brief laser-like colors can still produce false positives, and cuts or fast motion can suppress genuine pulses. Confirm performance on your chosen video.
 
@@ -137,3 +137,24 @@ The sensitivity slider now keeps your chosen value through automatic refreshes. 
 ### Barricade length
 
 Select a barricade in the overhead editor and set **Length · front–back (m)** beside its width/height settings. Width spans left–right; length extends along the range floor toward/away from the viewer. The 0.1–10 m value is stored in the existing `depth` field, so saved/shared scenarios and the projector use the same geometry.
+
+
+### Video detection profiles and diagnosis
+
+Start with **Balanced** and a **600 ms** maximum pulse. Balanced confirms the fade of the original bright core rather than requiring the surrounding video patch to become quiet. It tolerates moderate scene motion and camera stutter. **Strict** retains the conservative motion/cut checks; **Sensitive** increases motion/cut and frame-gap tolerance, with a greater false-positive risk. All profiles reject overlong pulses. The maximum pulse must exceed your device flash plus the interval to the next captured frame.
+
+Phone status reports raw candidates, confirmed pulses, and rejection reasons (movement, scene change, pulse too long, frame gap, unstable onset). If candidates do not rise when firing, adjust camera exposure/sensitivity; changing the confirmation profile cannot recover a pulse the detector never sees. If candidates rise but confirmations do not, use the reason counts to choose a profile or pulse limit. Try ten spaced shots on the same clip, then run that clip without firing to check false positives. These counts are diagnostics, not an automatic accuracy measurement. The reported one-in-ten hardware detection rate needs retesting with this update.
+
+### Assets, scoring and movement
+
+Select a barrier to choose a block, car, pillar, fence, window wall or highway barrier. Width, height, front–back length and rotation remain editable. Models are original procedural geometry; window/fence openings allow shots through and solid parts block them. Targets offer illustrated silhouette, cardboard, bullseye and mannequin styles. These are lightweight local assets, not photorealistic scans.
+
+Under a target's scoring-zone controls, add up to twelve named rectangle/ellipse zones. Centers and dimensions use normalized target coordinates (0–1, with y increasing downward). Zones must fit inside the target. First matching zone wins; **Move first** changes priority. A target hit outside configured zones scores zero points but still counts as a hit. Targets without zones retain one point per hit; no-shoot hits score zero and remain separately reported.
+
+**Repeat every** schedules visibility from the target's start time; **Visible for** sets each appearance length. Zero repeat disables repetition. The target stops at its end time, and movement continues while hidden. Smooth easing slows movement near path segment endpoints. Camera speed is in meters/second; heading can be fixed or follow the path with an angular offset. These settings and session settings travel with saved/shared scenario JSON.
+
+### Countdown, beep and comparison
+
+Expand **Session start** to configure a 0–15 second countdown and the beep's enable switch, frequency, duration and volume. Preview the beep on the operator device. The operator emits the start beep once; the projector shows the same countdown. Browser audio permission and device output volume apply. Shots during countdown are ignored, and countdown time does not consume scenario duration. Cancelling during countdown does not create a scored run.
+
+Run sessions under different shooter names to fill the comparison table. It shows totals, hit accuracy, points/best run, no-shoot hits, pending reviews, mean first-shot time, mean within-run split and zone counts. Different scenario/settings, media sources, and demo/live inputs form separate comparison groups. Manual video reviews update the totals. History retains up to fifty runs in the current page, with review images only for the five newest; reloading clears history.

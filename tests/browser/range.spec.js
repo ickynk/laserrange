@@ -137,7 +137,7 @@ test("Impact marks follow moving target surfaces, do not intercept shots, and cl
     range.setTime(2);
     const after = mark.getWorldPosition(new THREE.Vector3());
     const count = range.impacts.length;
-    const attached = mark.parent === range.meshes[0];
+    const attached = range.meshes[0].getObjectById(mark.id) === mark;
     range.setScenario(s);
     const cleared = range.impacts.length;
     range.renderer.dispose();
@@ -175,21 +175,22 @@ test("Barricade length edits survive save/import and set rendered front-back geo
     JSON.parse(localStorage.getItem("laser-range.scenario.v1")),
   );
   expect(scenario.barriers.at(-1).depth).toBe(6.5);
-  await page
-    .locator("#importScenario")
-    .setInputFiles({
-      name: "length.json",
-      mimeType: "application/json",
-      buffer: Buffer.from(JSON.stringify(scenario)),
-    });
+  await page.locator("#importScenario").setInputFiles({
+    name: "length.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(scenario)),
+  });
   await page.locator("#objects").selectOption(scenario.barriers.at(-1).id);
   await expect(page.locator("#objLength")).toHaveValue("6.5");
   const depth = await page.evaluate(async (s) => {
     const { RangeScene } = await import("/range.js");
     const range = new RangeScene(document.createElement("canvas"));
     range.setScenario(s);
-    return range.meshes.find((m) => m.userData.id === s.barriers.at(-1).id)
-      .geometry.parameters.depth;
+    const THREE = await import("/vendor/three/build/three.module.js");
+    const bounds = new THREE.Box3().setFromObject(
+      range.meshes.find((m) => m.userData.id === s.barriers.at(-1).id),
+    );
+    return bounds.max.z - bounds.min.z;
   }, scenario);
   expect(depth).toBe(6.5);
   await page.locator("#objLength").fill("11");

@@ -1,3 +1,4 @@
+import { SessionAudio } from "./core/audio.js";
 import { ProjectionLink } from "./core/projection-link.js";
 import { calculateZero, applyZero, outsideScreen } from "./core/zero.js";
 import { drawCalibration, drawZero } from "./core/pattern.js";
@@ -7,6 +8,7 @@ import {
   defaultScenario,
   validateScenario,
   summarize,
+  compareSessions,
 } from "./core/scenario.js";
 const $ = (id) => document.getElementById(id),
   notice = (message) => ($("notice").textContent = message);
@@ -37,6 +39,12 @@ let currentTime = 0,
   sessionsSelect,
   lastArchivedStart = null;
 const pastSessions = [];
+const sessionAudio = new SessionAudio();
+let selectedZone = 0,
+  runScenarioKey = "",
+  runScenarioName = "",
+  runMode = "3d",
+  mediaStarted = false;
 const shooterZeros = new Map();
 let zeroSession = null,
   zeroPattern = false,
@@ -66,6 +74,15 @@ function rebuild() {
   range.editor = $("viewToggle").textContent === "Perspective view";
   $("scenarioName").value = scenario.name;
   $("duration").value = scenario.duration;
+  $("cameraSpeed").value = scenario.cameraSpeed ?? 0.6;
+  $("cameraHeading").value = scenario.cameraHeading ?? 0;
+  $("cameraHeadingMode").value = scenario.cameraHeadingMode ?? "fixed";
+  const settings = scenario.session || {};
+  $("countdownSeconds").value = settings.countdown ?? 0;
+  $("beepEnabled").checked = settings.beep ?? true;
+  $("beepFrequency").value = settings.frequency ?? 880;
+  $("beepDuration").value = settings.beepDuration ?? 0.12;
+  $("beepVolume").value = settings.volume ?? 0.08;
   $("cameraMotion").checked = scenario.cameraMotion;
   $("sceneTitle").textContent = scenario.name;
   const select = $("objects");
@@ -93,10 +110,143 @@ function properties() {
     $(id).value = t[key];
   $("targetProperties").hidden = !t.kind;
   $("barrierProperties").hidden = !!t.kind;
-  if (!t.kind) $("objLength").value = t.depth;
+  if (!t.kind) {
+    $("objLength").value = t.depth;
+    $("barrierAsset").value = t.asset ?? "block";
+    $("barrierRotation").value = t.rotation ?? 0;
+  } else {
+    $("targetAsset").value = t.asset ?? "silhouette";
+    $("targetEasing").value = t.easing ?? "linear";
+    $("repeatEvery").value = t.repeatEvery ?? 0;
+    $("visibleFor").value = t.visibleFor ?? (t.repeatEvery || 1);
+    zoneProperties();
+  }
   if (t.kind)
     for (const key of ["kind", "start", "end", "speed"]) $(key).value = t[key];
 }
+function zoneProperties() {
+  const zones = object()?.zones || [];
+  selectedZone = Math.max(0, Math.min(selectedZone, zones.length - 1));
+  $("zones").replaceChildren(
+    ...zones.map(
+      (z, i) => new Option(`${i + 1}. ${z.name} · ${z.points} pts`, String(i)),
+    ),
+  );
+  $("zones").value = String(selectedZone);
+  const z = zones[selectedZone];
+  $("zoneProperties").hidden = !z;
+  if (z)
+    for (const [id, key] of [
+      ["zoneName", "name"],
+      ["zoneShape", "shape"],
+      ["zoneX", "x"],
+      ["zoneY", "y"],
+      ["zoneWidth", "width"],
+      ["zoneHeight", "height"],
+      ["zonePoints", "points"],
+    ])
+      $(id).value = z[key];
+}
+$("zones").onchange = () => {
+  selectedZone = Number($("zones").value);
+  zoneProperties();
+};
+$("addZone").onclick = () =>
+  edit(() => {
+    const t = object();
+    t.zones ||= [];
+    t.zones.unshift({
+      name: `Zone ${t.zones.length + 1}`,
+      shape: "ellipse",
+      x: 0.5,
+      y: 0.5,
+      width: 0.3,
+      height: 0.35,
+      points: 5,
+    });
+    selectedZone = 0;
+  });
+$("deleteZone").onclick = () =>
+  edit(() => object().zones?.splice(selectedZone, 1));
+$("zoneUp").onclick = () =>
+  edit(() => {
+    const zs = object().zones;
+    if (zs?.[selectedZone]) zs.unshift(...zs.splice(selectedZone, 1));
+    selectedZone = 0;
+  });
+for (const [id, key] of [
+  ["zoneName", "name"],
+  ["zoneShape", "shape"],
+  ["zoneX", "x"],
+  ["zoneY", "y"],
+  ["zoneWidth", "width"],
+  ["zoneHeight", "height"],
+  ["zonePoints", "points"],
+])
+  $(id).onchange = () =>
+    edit(() => {
+      object().zones[selectedZone][key] = ["name", "shape"].includes(key)
+        ? $(id).value
+        : Number($(id).value);
+    });
+for (const [id, key] of [
+  ["targetAsset", "asset"],
+  ["targetEasing", "easing"],
+  ["repeatEvery", "repeatEvery"],
+  ["visibleFor", "visibleFor"],
+  ["barrierRotation", "rotation"],
+])
+  $(id).onchange = () =>
+    edit(() => {
+      object()[key] = ["asset", "easing"].includes(key)
+        ? $(id).value
+        : Number($(id).value);
+      if (key === "repeatEvery" && object().repeatEvery > 0)
+        object().visibleFor = Math.min(
+          object().visibleFor ?? 1,
+          object().repeatEvery,
+        );
+    });
+$("barrierAsset").onchange = () =>
+  edit(() => {
+    const asset = $("barrierAsset").value;
+    const dimensions = {
+      block: [2, 1.3, 0.6],
+      car: [1.9, 1.5, 4.4],
+      pillar: [0.7, 3, 0.7],
+      fence: [4, 2, 0.2],
+      window: [3, 2.6, 0.3],
+      highway: [3, 1, 0.7],
+    }[asset];
+    Object.assign(object(), {
+      asset,
+      width: dimensions[0],
+      height: dimensions[1],
+      depth: dimensions[2],
+    });
+  });
+for (const key of ["cameraSpeed", "cameraHeading", "cameraHeadingMode"])
+  $(key).onchange = () =>
+    edit(() => {
+      scenario[key] =
+        key === "cameraHeadingMode" ? $(key).value : Number($(key).value);
+    });
+for (const [id, key] of [
+  ["countdownSeconds", "countdown"],
+  ["beepEnabled", "beep"],
+  ["beepFrequency", "frequency"],
+  ["beepDuration", "beepDuration"],
+  ["beepVolume", "volume"],
+])
+  $(id).onchange = () =>
+    edit(() => {
+      scenario.session ||= {};
+      scenario.session[key] =
+        key === "beep" ? $(id).checked : Number($(id).value);
+    });
+$("previewBeep").onclick = () => {
+  if (!running) sessionAudio.schedule(scenario.session);
+};
 function edit(fn) {
   if (running) return notice("End the session before editing.");
   try {
@@ -673,6 +823,8 @@ function updateStats() {
     ["statNoShoots", "noShoots"],
   ])
     $(id).textContent = s[key];
+  $("statPoints").textContent = s.points;
+  renderComparison();
   $("statAccuracy").textContent = s.shots ? `${s.accuracy}%` : "—";
   $("reviewSummary").textContent =
     `${runShooter} · ${s.pending} pending review${s.first !== null ? ` · first ${s.first.toFixed(2)}s` : ""}${s.splits.length ? ` · last split ${s.splits.at(-1).toFixed(2)}s` : ""}`;
@@ -694,7 +846,7 @@ function addShotRow(shot) {
   num.textContent = String(shots.length).padStart(2, "0");
   const detail = document.createElement("span");
   detail.className = "shotDetail";
-  detail.textContent = `${shot.time.toFixed(2)}s · ${shot.target || "screen"} · ${shot.demo ? "demo" : shot.confidence === "high" ? "detected" : "uncertain"}`;
+  detail.textContent = `${shot.time.toFixed(2)}s · ${shot.target || "screen"}${shot.zone ? ` · ${shot.zone} · ${shot.points} pts` : ""} · ${shot.demo ? "demo" : shot.confidence === "high" ? "detected" : "uncertain"}`;
   const select = document.createElement("select");
   select.setAttribute("aria-label", `Score shot ${shots.length}`);
   for (const value of ["review", "hit", "miss", "no-shoot"])
@@ -770,6 +922,7 @@ function acceptShot(shot) {
   }
 }
 function startRun() {
+  if (running) return;
   if (projection?.opening || (projection?.connected && !projection.ready))
     return notice("Wait for the projector to finish loading before starting.");
   if (calibrating) return notice("Return to the range after calibration.");
@@ -785,7 +938,14 @@ function startRun() {
     return notice(e.message);
   }
   running = true;
-  started = now();
+  started = now() + (scenario.session?.countdown || 0) * 1000;
+  mediaStarted = false;
+  $("movie").pause();
+  youtubePlayer?.pauseVideo?.();
+  runScenarioKey = JSON.stringify([scenario, mode === "3d" ? null : mediaKey]);
+  runScenarioName = scenario.name;
+  runMode = mode;
+  sessionAudio.schedule(scenario.session, scenario.session?.countdown || 0);
   sessionsSelect.value = "current";
   shots = [];
   $("shotOverlay").replaceChildren();
@@ -827,34 +987,30 @@ function startRun() {
   $("stopRun").disabled = false;
   $("demo").disabled = true;
   channel?.send({ type: "mode", mode });
-  if (mode === "upload" && !projection?.connected) {
-    $("movie").currentTime = 0;
-    $("movie")
-      .play()
-      .catch((e) => notice(e.message));
-  }
-  if (mode === "youtube" && !projection?.connected)
-    youtubePlayer?.playVideo?.();
-  try {
-    const audio = new AudioContext(),
-      osc = audio.createOscillator(),
-      gain = audio.createGain();
-    gain.gain.value = 0.08;
-    osc.frequency.value = 880;
-    osc.connect(gain);
-    gain.connect(audio.destination);
-    osc.start();
-    osc.stop(audio.currentTime + 0.12);
-    osc.onended = () => audio.close();
-  } catch {}
+  beginRunMedia();
   updateStats();
   notice(
     `${runShooter}: ${runDemo ? "demo" : "live camera"} session running. ${mode !== "3d" ? "Score each shot manually in session review." : ""}`,
   );
 }
+function beginRunMedia() {
+  if (!running || mediaStarted || now() < started) return;
+  mediaStarted = true;
+  if (projection?.connected) return;
+  if (mode === "upload") {
+    $("movie").currentTime = 0;
+    $("movie")
+      .play()
+      .catch((e) => notice(e.message));
+  }
+  if (mode === "youtube") youtubePlayer?.playVideo?.();
+}
 function stopRun() {
   const wasRunning = running;
+  const startedScoring = running && now() >= started;
   running = false;
+  sessionAudio.cancel();
+  $("countdownDisplay").hidden = true;
   if (wasRunning) projection?.send({ type: "stop" });
   updateShotInput();
   $("startRun").disabled = false;
@@ -865,16 +1021,21 @@ function stopRun() {
   notice(
     `Session ended. Review ${shots.length} shots below. Select another shooter to run again.`,
   );
-  if (wasRunning) archiveSession();
+  if (startedScoring) archiveSession();
 }
 $("startRun").onclick = startRun;
 $("stopRun").onclick = stopRun;
 function animate(t) {
   requestAnimationFrame(animate);
+  beginRunMedia();
+  const remaining = running ? Math.max(0, started - now()) : 0;
+  $("countdownDisplay").hidden = !remaining;
+  if (remaining)
+    $("countdownDisplay").textContent = String(Math.ceil(remaining / 1000));
   currentTime = projection?.connected
     ? remoteElapsed
     : running
-      ? (now() - started) / 1000
+      ? Math.max(0, (now() - started) / 1000)
       : currentTime;
   if (!projection?.connected || range.editor) range.render(currentTime);
   if (running) {
@@ -1108,11 +1269,72 @@ sessionsSelect.id = "pastSessions";
 sessionsSelect.setAttribute("aria-label", "Previous shooter sessions");
 sessionsSelect.add(new Option("Current session", "current"));
 $("reviewSummary").parentElement.append(sessionsSelect);
+function renderComparison() {
+  const body = $("comparisonBody");
+  if (!body) return;
+  body.replaceChildren();
+  const sets = new Map();
+  for (const entry of pastSessions)
+    if (!sets.has(entry.scenarioKey))
+      sets.set(entry.scenarioKey, sets.size + 1);
+  for (const g of compareSessions(pastSessions)) {
+    const entry = pastSessions.find(
+      (s) =>
+        s.shooter === g.shooter &&
+        s.scenarioName === g.scenario &&
+        s.mode === g.mode &&
+        s.demo === g.demo,
+    );
+    const row = document.createElement("tr");
+    const fmt = (n) => (n === null ? "—" : `${n.toFixed(2)}s`);
+    for (const value of [
+      g.shooter,
+      `${g.scenario} / ${sets.get(g.scenarioKey || entry?.scenarioKey)}`,
+      `${g.mode} · ${g.demo ? "demo" : "camera"}`,
+      g.runs,
+      g.shots,
+      g.hits,
+      g.misses,
+      g.noShoots,
+      g.pending,
+      `${g.accuracy}%`,
+      g.points,
+      g.bestPoints,
+      fmt(g.averageFirst),
+      fmt(g.averageSplit),
+      Object.entries(g.zones)
+        .map(([zone, n]) => `${zone}: ${n}`)
+        .join(", ") || "—",
+    ]) {
+      const cell = document.createElement("td");
+      cell.textContent = String(value);
+      row.append(cell);
+    }
+    body.append(row);
+  }
+}
+$("clearComparisons").onclick = () => {
+  if (running) return notice("End the session before clearing history.");
+  pastSessions.length = 0;
+  sessionsSelect.replaceChildren(new Option("Current session", "current"));
+  renderComparison();
+};
 function archiveSession() {
   if (started && lastArchivedStart !== started) {
     lastArchivedStart = started;
-    pastSessions.unshift({ id: String(started), shooter: runShooter, shots });
-    if (pastSessions.length > 5) pastSessions.pop();
+    pastSessions.unshift({
+      id: String(started),
+      shooter: runShooter,
+      shots,
+      scenarioKey: runScenarioKey,
+      scenarioName: runScenarioName,
+      mode: runMode,
+      demo: runDemo,
+    });
+    if (pastSessions.length > 50) pastSessions.pop();
+    for (const old of pastSessions.slice(5))
+      for (const shot of old.shots) delete shot.image;
+    renderComparison();
     sessionsSelect.replaceChildren(new Option("Current session", "current"));
     for (const s of pastSessions)
       sessionsSelect.add(

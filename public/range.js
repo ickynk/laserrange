@@ -1,51 +1,12 @@
 import * as THREE from "/vendor/three/build/three.module.js";
-import { targetPosition, pathPosition } from "./core/scenario.js";
+import {
+  targetPosition,
+  pathPosition,
+  targetActive,
+  zoneScore,
+} from "./core/scenario.js";
 
-function targetTexture(kind) {
-  const c = document.createElement("canvas");
-  c.width = 256;
-  c.height = 384;
-  const x = c.getContext("2d");
-  x.fillStyle = "#d5c3a3";
-  x.fillRect(0, 0, 256, 384);
-  x.fillStyle = "#273747";
-  x.beginPath();
-  x.arc(128, 69, 37, 0, Math.PI * 2);
-  x.fill();
-  x.beginPath();
-  x.moveTo(67, 117);
-  x.lineTo(189, 117);
-  x.lineTo(211, 190);
-  x.lineTo(186, 359);
-  x.lineTo(70, 359);
-  x.lineTo(45, 190);
-  x.closePath();
-  x.fill();
-  x.strokeStyle = "#708291";
-  x.lineWidth = 2;
-  x.strokeRect(94, 154, 68, 110);
-  x.fillStyle = "#f6e3c1";
-  if (kind === "shoot") {
-    // Explicit stylized prop for an armed target, without relying on laser-colored cues.
-    x.fillRect(133, 164, 79, 18);
-    x.fillRect(165, 177, 16, 35);
-    x.fillStyle = "#d5c3a3";
-    x.fillRect(151, 184, 8, 9);
-  } else {
-    for (const dx of [28, 202]) {
-      x.fillRect(dx, 110, 23, 39);
-      for (let i = 0; i < 4; i++)
-        x.fillRect(dx + i * 6, 90 - (i % 2) * 6, 4, 29);
-    }
-  }
-  x.fillStyle = "#273747";
-  x.font = "bold 15px sans-serif";
-  x.textAlign = "center";
-  x.fillText(kind === "shoot" ? "ARMED" : "UNARMED", 128, 378);
-  const texture = new THREE.CanvasTexture(c);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  return texture;
-}
+import { barrierModel, targetModel } from "./core/assets.js";
 export class RangeScene {
   constructor(canvas) {
     this.canvas = canvas;
@@ -91,10 +52,6 @@ export class RangeScene {
     this.scene.add(this.group);
     this.pathGroup = new THREE.Group();
     this.scene.add(this.pathGroup);
-    this.textures = {
-      shoot: targetTexture("shoot"),
-      "no-shoot": targetTexture("no-shoot"),
-    };
     this.impacts = [];
     this.meshes = [];
     this.raycaster = new THREE.Raycaster();
@@ -117,29 +74,23 @@ export class RangeScene {
     this.scenario = s;
     this.roles = roles;
     for (const m of this.meshes) {
-      m.geometry.dispose();
-      m.material.dispose();
+      m.traverse((child) => {
+        child.geometry?.dispose();
+        child.material?.map?.dispose();
+        child.material?.dispose();
+      });
     }
     this.group.clear();
     this.meshes = [];
     for (const t of s.targets) {
       const kind = roles[t.id] || (t.kind === "random" ? "shoot" : t.kind);
-      const m = new THREE.Mesh(
-        new THREE.BoxGeometry(t.width, t.height, 0.12),
-        new THREE.MeshStandardMaterial({
-          map: this.textures[kind],
-          roughness: 0.9,
-        }),
-      );
+      const m = targetModel(t, kind);
       m.userData = { id: t.id, type: "target", target: t, kind };
       this.group.add(m);
       this.meshes.push(m);
     }
     for (const b of s.barriers) {
-      const m = new THREE.Mesh(
-        new THREE.BoxGeometry(b.width, b.height, b.depth),
-        new THREE.MeshStandardMaterial({ color: 0x626970, roughness: 1 }),
-      );
+      const m = barrierModel(b);
       m.position.set(b.x, b.height / 2, b.z);
       m.userData = { id: b.id, type: "barrier" };
       this.group.add(m);
@@ -174,13 +125,45 @@ export class RangeScene {
         const t = m.userData.target,
           p = targetPosition(t, time);
         m.position.set(p.x, t.height / 2, p.z);
-        m.visible = this.editor || (time >= t.start && time < t.end);
+        m.visible = this.editor || targetActive(t, time);
       }
     const p = this.scenario.cameraMotion
-      ? pathPosition(this.scenario.cameraPath, time * 0.6, false)
+      ? pathPosition(
+          this.scenario.cameraPath,
+          time * (this.scenario.cameraSpeed ?? 0.6),
+          false,
+        )
       : null;
     this.camera.position.set(p?.x ?? 0, 1.65, p?.z ?? 8);
-    this.camera.lookAt(p?.x ?? 0, 1.4, (p?.z ?? 8) - 20);
+    let heading = ((this.scenario.cameraHeading || 0) * Math.PI) / 180;
+    if (p && this.scenario.cameraHeadingMode === "path") {
+      const next = pathPosition(
+        this.scenario.cameraPath,
+        (time + 0.05) * (this.scenario.cameraSpeed ?? 0.6),
+        false,
+      );
+      const prev = pathPosition(
+        this.scenario.cameraPath,
+        Math.max(0, time - 0.05) * (this.scenario.cameraSpeed ?? 0.6),
+        false,
+      );
+      if (next && prev && Math.hypot(next.x - prev.x, next.z - prev.z) > 0.0001)
+        heading += Math.atan2(next.x - prev.x, -(next.z - prev.z));
+      else {
+        const path = this.scenario.cameraPath,
+          end = path.at(-1);
+        const prior = path
+          .slice(0, -1)
+          .reverse()
+          .find((q) => Math.hypot(end.x - q.x, end.z - q.z) > 0.0001);
+        if (prior) heading += Math.atan2(end.x - prior.x, -(end.z - prior.z));
+      }
+    }
+    this.camera.lookAt(
+      (p?.x ?? 0) + Math.sin(heading) * 20,
+      1.4,
+      (p?.z ?? 8) - Math.cos(heading) * 20,
+    );
     this.camera.updateMatrixWorld();
     this.scene.updateMatrixWorld(true);
     this.pathGroup.visible = this.editor;
@@ -194,10 +177,13 @@ export class RangeScene {
       new THREE.Vector2(x * 2 - 1, 1 - y * 2),
       this.editor ? this.overhead : this.camera,
     );
-    return this.raycaster.intersectObjects(
+    const hit = this.raycaster.intersectObjects(
       this.meshes.filter((m) => m.visible),
-      false,
-    )[0]?.object.userData.id;
+      true,
+    )[0];
+    let root = hit?.object;
+    while (root && !root.userData.id) root = root.parent;
+    return root?.userData.id;
   }
   floorPoint(x, y) {
     this.raycaster.setFromCamera(
@@ -218,12 +204,14 @@ export class RangeScene {
     );
     const hit = this.raycaster.intersectObjects(
       this.meshes.filter((m) => m.visible),
-      false,
+      true,
     )[0];
+    let root = hit?.object;
+    while (root && !root.userData.id) root = root.parent;
     let result = { result: "miss", target: null };
-    if (hit?.object.userData.type === "target") {
-      const u = hit.object.userData;
-      const local = hit.object.worldToLocal(hit.point.clone());
+    if (root?.userData.type === "target") {
+      const u = root.userData;
+      const local = root.worldToLocal(hit.point.clone());
       result = {
         result: u.kind === "shoot" ? "hit" : "no-shoot",
         target: u.id,
@@ -232,10 +220,15 @@ export class RangeScene {
           y: 0.5 - local.y / u.target.height,
         },
       };
-    } else if (hit) result.target = "barrier";
+      const zone = zoneScore(u.target, result.local);
+      Object.assign(result, zone, {
+        points: u.kind === "shoot" ? zone.points : 0,
+      });
+    } else if (hit) result.target = root?.userData.id || "barrier";
     if (hit) {
       result.impact = {
-        objectId: hit.object.userData.id,
+        objectId: root.userData.id,
+        partId: hit.object.name,
         point: hit.object.worldToLocal(hit.point.clone()).toArray(),
         normal: hit.face.normal.toArray(),
       };
@@ -254,7 +247,8 @@ export class RangeScene {
     this.impacts = [];
   }
   addImpact(impact) {
-    const target = this.meshes.find((m) => m.userData.id === impact.objectId);
+    const root = this.meshes.find((m) => m.userData.id === impact.objectId);
+    const target = impact.partId ? root?.getObjectByName(impact.partId) : root;
     if (!target) return;
     const mark = new THREE.Group();
     const normal = new THREE.Vector3(...impact.normal).normalize();
@@ -274,6 +268,7 @@ export class RangeScene {
           polygonOffsetUnits: -1,
         }),
       );
+      dot.raycast = () => {};
       dot.position.z = z;
       mark.add(dot);
     }

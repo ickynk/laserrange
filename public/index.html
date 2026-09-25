@@ -80,15 +80,41 @@
                   step=".1"
               /></label>
             </div>
-            <label id="barrierProperties" hidden
-              >Length · front–back (m)<input
-                id="objLength"
-                type="number"
-                min=".1"
-                max="10"
-                step=".1"
-            /></label>
+            <div id="barrierProperties" hidden>
+              <label
+                >Barrier asset<select id="barrierAsset">
+                  <option value="block">Concrete block</option>
+                  <option value="car">Car</option>
+                  <option value="pillar">Pillar</option>
+                  <option value="fence">Metal fence</option>
+                  <option value="window">Window wall · open aperture</option>
+                  <option value="highway">Highway barrier</option>
+                </select></label
+              ><label
+                >Rotation · degrees<input
+                  id="barrierRotation"
+                  type="number"
+                  min="-180"
+                  max="180"
+                  step="5" /></label
+              ><label
+                >Length · front–back (m)<input
+                  id="objLength"
+                  type="number"
+                  min=".1"
+                  max="10"
+                  step=".1"
+              /></label>
+            </div>
             <div id="targetProperties">
+              <label
+                >Target asset<select id="targetAsset">
+                  <option value="silhouette">Illustrated silhouette</option>
+                  <option value="cardboard">Cardboard silhouette</option>
+                  <option value="bullseye">Paper bullseye</option>
+                  <option value="mannequin">Sculpted mannequin</option>
+                </select></label
+              >
               <label
                 >Target role<select id="kind">
                   <option value="shoot">Shoot · armed symbol</option>
@@ -111,6 +137,94 @@
                   max="15"
                   step=".1"
               /></label>
+              <label
+                >Movement easing<select id="targetEasing">
+                  <option value="linear">Constant speed</option>
+                  <option value="smooth">
+                    Smooth acceleration per segment
+                  </option>
+                </select></label
+              >
+              <div class="row">
+                <label
+                  >Repeat every · sec (0 = once)<input
+                    id="repeatEvery"
+                    type="number"
+                    min="0"
+                    max="600"
+                    step=".1" /></label
+                ><label
+                  >Visible each repeat · sec<input
+                    id="visibleFor"
+                    type="number"
+                    min=".1"
+                    max="600"
+                    step=".1"
+                /></label>
+              </div>
+              <details>
+                <summary>Scoring zones</summary>
+                <p class="hint">
+                  Coordinates are fractions of target width/height, from the top
+                  left. First matching zone wins; outside zones earns 0 points.
+                </p>
+                <select id="zones" aria-label="Scoring zone"></select>
+                <div class="row">
+                  <button id="addZone">Add zone</button
+                  ><button id="deleteZone">Remove zone</button
+                  ><button id="zoneUp">Move first</button>
+                </div>
+                <div id="zoneProperties" hidden>
+                  <label>Name<input id="zoneName" maxlength="30" /></label
+                  ><label
+                    >Shape<select id="zoneShape">
+                      <option value="ellipse">Ellipse</option>
+                      <option value="rectangle">Rectangle</option>
+                    </select></label
+                  >
+                  <div class="row">
+                    <label
+                      >Center X<input
+                        id="zoneX"
+                        type="number"
+                        min="0"
+                        max="1"
+                        step=".01" /></label
+                    ><label
+                      >Center Y<input
+                        id="zoneY"
+                        type="number"
+                        min="0"
+                        max="1"
+                        step=".01"
+                    /></label>
+                  </div>
+                  <div class="row">
+                    <label
+                      >Width<input
+                        id="zoneWidth"
+                        type="number"
+                        min=".02"
+                        max="1"
+                        step=".01" /></label
+                    ><label
+                      >Height<input
+                        id="zoneHeight"
+                        type="number"
+                        min=".02"
+                        max="1"
+                        step=".01"
+                    /></label>
+                  </div>
+                  <label
+                    >Points<input
+                      id="zonePoints"
+                      type="number"
+                      min="0"
+                      max="100"
+                  /></label>
+                </div>
+              </details>
               <div class="row">
                 <button id="targetPath">Draw target path</button
                 ><button id="clearPath">Clear path</button>
@@ -129,6 +243,69 @@
             <button id="cameraPath">Draw camera path</button
             ><button id="clearCameraPath">Clear path</button>
           </div>
+          <div class="row">
+            <label
+              >Camera speed · m/s<input
+                id="cameraSpeed"
+                type="number"
+                min=".1"
+                max="15"
+                step=".1" /></label
+            ><label
+              >Heading / offset · degrees<input
+                id="cameraHeading"
+                type="number"
+                min="-180"
+                max="180"
+                step="5"
+            /></label>
+          </div>
+          <label
+            >Camera heading<select id="cameraHeadingMode">
+              <option value="fixed">Fixed direction (0 = downrange)</option>
+              <option value="path">Follow path + heading offset</option>
+            </select></label
+          >
+          <details>
+            <summary>Session start</summary>
+            <label
+              >Countdown · seconds<input
+                id="countdownSeconds"
+                type="number"
+                min="0"
+                max="15"
+                step="1"
+            /></label>
+            <label class="check"
+              ><input id="beepEnabled" type="checkbox" checked /> Start
+              beep</label
+            >
+            <div class="row">
+              <label
+                >Pitch · Hz<input
+                  id="beepFrequency"
+                  type="number"
+                  min="200"
+                  max="2000"
+                  step="50" /></label
+              ><label
+                >Length · sec<input
+                  id="beepDuration"
+                  type="number"
+                  min=".05"
+                  max="1"
+                  step=".05"
+              /></label>
+            </div>
+            <label
+              >Volume<input
+                id="beepVolume"
+                type="range"
+                min="0"
+                max=".3"
+                step=".01" /></label
+            ><button id="previewBeep">Preview beep</button>
+          </details>
           <p class="hint" id="editorHint">
             Switch to overhead to drag objects. Paths use ordered clicks on the
             floor.
@@ -264,6 +441,12 @@
           </div>
         </div>
         <div id="stage">
+          <div
+            id="countdownDisplay"
+            class="countdownDisplay"
+            hidden
+            aria-live="polite"
+          ></div>
           <img id="remotePreview" alt="Live projector preview" hidden />
           <div id="remoteVideoNotice" hidden>
             YouTube is playing in the projector window. Use the controls here;
@@ -293,6 +476,7 @@
           ><button id="stopRun" disabled>End session</button>
         </div>
         <div class="stats">
+          <div><strong id="statPoints">0</strong><span>Points</span></div>
           <div><span>SHOTS</span><strong id="statShots">0</strong></div>
           <div><span>HITS</span><strong id="statHits">0</strong></div>
           <div><span>MISSES</span><strong id="statMisses">0</strong></div>
@@ -310,6 +494,39 @@
         </section>
       </section>
     </main>
+    <section class="comparisonPanel">
+      <h2>Shooter comparison</h2>
+      <p class="hint">
+        Grouped by identical scenario settings, media mode and demo/live input.
+        Pending reviews do not contribute to accuracy or points. Most recent 50
+        runs; review images retained for 5.
+      </p>
+      <button id="clearComparisons">Clear session history</button>
+      <div class="tableScroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Shooter</th>
+              <th>Scenario / set</th>
+              <th>Input</th>
+              <th>Runs</th>
+              <th>Shots</th>
+              <th>Hits</th>
+              <th>Misses</th>
+              <th>No-shoot</th>
+              <th>Pending</th>
+              <th>Accuracy</th>
+              <th>Points</th>
+              <th>Best run</th>
+              <th>Avg first</th>
+              <th>Avg split</th>
+              <th>Zone hits</th>
+            </tr>
+          </thead>
+          <tbody id="comparisonBody"></tbody>
+        </table>
+      </div>
+    </section>
     <dialog id="snapshotDialog">
       <button id="closeSnapshot">Close</button>
       <h2 id="snapshotTitle">Shot review</h2>

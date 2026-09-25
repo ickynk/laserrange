@@ -47,6 +47,7 @@ function pause() {
 function stop() {
   const wasRunning = running;
   running = false;
+  $("countdownDisplay").hidden = true;
   pause();
   updateInput();
   if (wasRunning) send({ type: "ended", runId, elapsed });
@@ -59,6 +60,7 @@ function lost() {
     "Operator disconnected. Close this window and reopen the projector from the operator screen.",
   );
 }
+let mediaStarted = false;
 let send = () => {};
 send = joinOperator(
   (m) =>
@@ -223,11 +225,16 @@ async function handle(m) {
       history = [];
       elapsed = 0;
       running = true;
+      mediaStarted = false;
+      pause();
       $("impacts").replaceChildren();
       updateInput();
       if (mode === "upload") $("media").currentTime = 0;
       if (mode === "youtube") player?.seekTo?.(0, true);
-      await play();
+      if (now() >= started) {
+        mediaStarted = true;
+        await play();
+      }
       send({ type: "started", runId });
       break;
     case "stop":
@@ -349,7 +356,22 @@ function animate(t) {
   requestAnimationFrame(animate);
   hideSetup();
   if (offline) return;
-  if (running) elapsed = Math.min((now() - started) / 1000, scenario.duration);
+  const remaining = running ? Math.max(0, started - now()) : 0;
+  $("countdownDisplay").hidden = !remaining;
+  if (remaining)
+    $("countdownDisplay").textContent = String(Math.ceil(remaining / 1000));
+  if (running && !mediaStarted && !remaining) {
+    mediaStarted = true;
+    play().catch((e) => {
+      stop();
+      fail(e.message);
+    });
+  }
+  if (running)
+    elapsed = Math.max(
+      0,
+      Math.min((now() - started) / 1000, scenario.duration),
+    );
   if (mode === "3d" && !calibrating) range.render(elapsed);
   if (running && elapsed >= scenario.duration) {
     elapsed = Math.max(0, scenario.duration - 0.001);

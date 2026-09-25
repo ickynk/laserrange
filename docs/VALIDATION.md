@@ -5,8 +5,8 @@ Version 0.1.0, hardware-validation alpha.
 | Check | Result |
 |---|---|
 | JavaScript syntax (`npm run check`) | Passed |
-| Node unit/integration suite (`npm test`) | 26 passed, 0 failed |
-| Playwright browser suite | 18 passed, 0 failed |
+| Node unit/integration suite (`npm test`) | 32 passed, 0 failed |
+| Playwright browser suite | 24 distinct tests passed, 0 failed (22-test full run plus 6-test options run, four overlapping) |
 | Rendered desktop interface | Screenshot inspected |
 | Physical iPhone / Android camera | User reports working auto-alignment and horizontal placement; successful screen-zero correction; connection-recovery hardware retest pending |
 | TitanX / DryFireMag-associated laser | User hardware feedback received; device-specific accuracy unverified |
@@ -40,3 +40,8 @@ Five-shot screen-zero tests cover correction direction, retained raw coordinates
 Recovery regressions forcibly terminate each peer socket and verify the same pairing code, corners, three-pulse qualification and applied zero survive, then record new shots. Both display modes exercise looped uploaded video for over 40 seconds, overhead/perspective switching, and phone background/restore; the separate projector also exercises visibility restoration. Server coverage checks 100-message bursts, host-first/phone-first recovery and same-client socket replacement. Physical Wi-Fi loss and mobile browser suspension still require hardware retesting.
 
 Video regressions cover short red/green pulse confirmation with original timestamp/image, rejection of sustained and moving highlights, scene cuts and camera-frame gaps, dim-pulse detection with retained manual thresholds, and source chroma gain/tint compensation. The real synthetic-phone pipeline verifies the slider remains at 18 across refreshes and video playback, with a short confirmed video pulse in both display modes. Barricade tests verify length controls, invalid-value rejection, saved/imported depth and rendered geometry. Physical false-positive rate and faint-laser performance on the user's actual videos remain unmeasured.
+
+
+Scenario/session extension regressions cover backward-compatible imports, malformed options, repeat boundaries, easing, zone priority and ellipse boundaries, settings/input-separated comparisons and within-run timing, muted/cancelled audio scheduling, asset/schedule persistence, window aperture versus frame occlusion, final camera heading, and countdown cancellation/early-shot exclusion/zone points in both display modes. A focused six-test rerun includes two additional uploaded-video checks proving an already-playing preview pauses for countdown and resumes at go. Original procedural assets were inspected in a rendered gallery. Physical audio/display synchronization and real-device video recall remain unmeasured.
+
+Balanced-video regression confirms an onset core can fade while broad neighboring video changes continue, while a translated compact highlight is rejected. The user's latest hardware feedback reports near-zero false positives but roughly one-in-ten true shots with the previous filter. This update is a candidate fix, not a measured hardware recall improvement; test the same clip with the new diagnostics.

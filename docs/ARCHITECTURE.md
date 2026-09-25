@@ -92,3 +92,12 @@ Preview/telemetry frames are dropped above 150 KB of queued outbound data so sta
 Uploaded video suppresses detection when source frames are stale instead of falling back to camera-only hue detection. YouTube uses the same pulse/cut guard without source subtraction; a short, stationary colored flash can still be indistinguishable from a laser, so its shots remain review-only. Cuts and rapid motion may also suppress genuine laser pulses. This is false-positive mitigation, not a guarantee of separation for arbitrary video.
 
 Manual thresholds range from 5 to 180 and become the authoritative setting immediately, before a host-triggered refresh can run. A manual choice survives baseline capture, content changes and reconnection in the current phone page. Changing it still requires the three-pulse check. Automatic scene refresh seeds the previous frame and updates color response without learning a higher noise threshold from video motion.
+
+
+## Scenario extensions and video confirmation profiles
+
+Version-1 scenario JSON accepts optional asset, rotation, scoring-zone, repeat/easing, camera speed/heading and session countdown/audio fields. Missing fields preserve legacy behavior. Both renderers use the same geometry, visibility and scoring functions. Raycasts recurse into asset parts; impacts attach in part coordinates. Zone priority is array order; points supplement existing hit/miss/no-shoot classification.
+
+The operator sends a future shared start timestamp for countdown. Both views clamp elapsed time to zero and defer run media start to that timestamp. Input before start is discarded. One operator AudioContext schedules the beep; cancellation invalidates pending async scheduling. Comparison groups use exact scenario/media settings and demo/live identity and calculate splits within each run.
+
+Video confirmation tracks onset-core chroma rather than the whole neighborhood in Balanced/Sensitive mode. A similarly sized translated highlight is rejected; broad surrounding changes do not alone veto a faded core. Strict retains whole-patch checks. All profiles have bounded pending candidates, pulse duration, scene-change and frame-gap checks, and preserve onset timestamp/review image. YouTube remains camera-only and ambiguous; counters expose filtering reasons but do not measure hardware recall.

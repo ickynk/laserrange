@@ -96,13 +96,20 @@
             /><span id="thresholdValue">55</span></label
           >
           <label
+            >Video filter<select id="videoFilterProfile">
+              <option value="balanced" selected>Balanced · recommended</option>
+              <option value="strict">Strict · fewer false positives</option>
+              <option value="sensitive">Sensitive · recover more pulses</option>
+            </select></label
+          >
+          <label
             >Maximum video pulse · ms<input
               id="videoPulseDuration"
               type="number"
               min="80"
               max="1000"
               step="10"
-              value="350"
+              value="600"
           /></label>
           <p id="videoFilterStatus" class="hint">
             Video filtering confirms short pulses before registering a shot.

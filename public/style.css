@@ -685,3 +685,56 @@ html {
   align-self: center;
   text-align: center;
 }
+
+.countdownDisplay {
+  position: absolute;
+  inset: 0;
+  z-index: 45;
+  display: grid;
+  place-items: center;
+  color: #fff0d6;
+  font-size: clamp(5rem, 18vw, 14rem);
+  font-weight: 800;
+  background: #101820d9;
+  pointer-events: none;
+  text-shadow: 0 3px 20px #000;
+}
+.countdownDisplay[hidden] {
+  display: none;
+}
+.projectorPage > .countdownDisplay {
+  position: fixed;
+}
+.comparisonPanel {
+  margin: 1rem;
+  padding: 1.2rem;
+  background: #15212c;
+  border: 1px solid #344552;
+  border-radius: 12px;
+}
+.tableScroll {
+  overflow-x: auto;
+}
+.comparisonPanel table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.82rem;
+}
+.comparisonPanel th,
+.comparisonPanel td {
+  padding: 0.7rem;
+  text-align: left;
+  border-bottom: 1px solid #344552;
+  white-space: nowrap;
+}
+details {
+  margin: 1rem 0;
+}
+summary {
+  cursor: pointer;
+  margin-bottom: 0.7rem;
+  color: #e4c18a;
+}
+.stats {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}

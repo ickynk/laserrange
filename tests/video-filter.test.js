@@ -107,3 +107,24 @@ test("Maximum video pulse setting can accommodate a longer device flash", () => 
     );
   }
 });
+
+test("Balanced confirmation tolerates surrounding video changes but rejects translated compact highlights", () => {
+  for (const broad of [true, false]) {
+    const filter = new VideoPulseFilter(w, h),
+      options = {
+        color: "red",
+        threshold: 15,
+        profile: "balanced",
+        maxDuration: 600,
+      };
+    filter.process(frame(), [], 0, options);
+    filter.process(frame("red", 60), [{ ...hit, pixels: 9 }], 100, options);
+    const next = frame("red", 64);
+    if (broad)
+      for (let y = 35; y < 49; y++)
+        for (let x = 63; x < 69; x++) next[(y * w + x) * 4] = 100;
+    const results = filter.process(next, [], 200, options);
+    assert.equal(results.length, broad ? 1 : 0);
+    if (!broad) assert.ok(filter.reasons.movement);
+  }
+});

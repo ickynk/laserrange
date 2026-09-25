@@ -568,13 +568,18 @@ function processFrame() {
             color: detector.color,
             threshold: detector.threshold,
             maxDuration: Number($("videoPulseDuration").value),
+            profile: $("videoFilterProfile").value,
             image: () => $("rectified").toDataURL("image/jpeg", 0.75),
           });
         }
         $("videoFilterStatus").textContent =
           mode === "upload" && !ref
             ? "Video detection waiting for fresh source frames."
-            : `${ref ? "Source subtraction +" : "YouTube: camera-only"} pulse filter · ${videoFilter.rejected} candidates/cuts rejected`;
+            : `${ref ? "Source subtraction +" : "YouTube: camera-only"} pulse filter · ${videoFilter.candidates} candidates · ${videoFilter.confirmed} accepted · ${
+                Object.entries(videoFilter.reasons)
+                  .map(([reason, count]) => `${count} ${reason}`)
+                  .join(", ") || "no rejections"
+              }`;
       } else videoFilter.reset();
       for (const hit of hits) {
         const image = hit.image || $("rectified").toDataURL("image/jpeg", 0.75);

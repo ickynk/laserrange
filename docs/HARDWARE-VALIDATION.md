@@ -71,3 +71,10 @@ User feedback confirms automated coded-board alignment works and horizontal plac
 The user reports the optional five-shot correction works correctly. Next hardware regression: overhead/perspective transitions, video beyond 35 seconds with a longer scenario duration, and brief Wi-Fi interruptions while verifying automatic recovery and retained correction.
 
 Latest report: video red hues generate false positives and actual laser detection requires the lowest threshold. Retest the revised detector with the same clips: first no-laser playback to count false positives, then separate visible pulses on varied backgrounds. Compare uploaded source-backed playback with camera-only YouTube. Verify the selected threshold remains unchanged across mode changes and the pulse duration setting covers the actual flash.
+
+
+## Retest after video profiles and session controls
+
+Latest user feedback: the previous conservative YouTube filter nearly eliminated false positives but registered about one in ten real shots. Begin the retest with Balanced and 600 ms, keeping the successful screen alignment/zero. On the same clip, fire ten spaced shots and record raw candidate/accepted count deltas and rejection reasons. Repeat without firing to measure false events. If raw candidates are absent, investigate exposure/threshold; if filtered, use the reported reason before trying Sensitive or a longer pulse. Compare Strict on the same footage. Retest on each phone/device combination and retain representative recordings; no hardware recall improvement has yet been measured for this version.
+
+Check that countdown/beep timing is usable with the actual projector and operator audio output, and that shots immediately before/after go are handled as expected. Review zone scoring and target visibility with representative repeated/moving scenarios.
