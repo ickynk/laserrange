@@ -5,10 +5,10 @@ Version 0.1.0, hardware-validation alpha.
 | Check | Result |
 |---|---|
 | JavaScript syntax (`npm run check`) | Passed |
-| Node unit/integration suite (`npm test`) | 17 passed, 0 failed |
-| Playwright browser suite | 15 passed, 0 failed |
+| Node unit/integration suite (`npm test`) | 20 passed, 0 failed |
+| Playwright browser suite | 17 passed, 0 failed |
 | Rendered desktop interface | Screenshot inspected |
-| Physical iPhone / Android camera | User reports session shots registering; new alignment retest pending |
+| Physical iPhone / Android camera | User reports working auto-alignment and horizontal placement; vertical screen-zero retest pending |
 | TitanX / DryFireMag-associated laser | User hardware feedback received; device-specific accuracy unverified |
 | Projector optics and end-to-end latency | Not measured |
 | YouTube live playback / uploaded media codec compatibility | Implementation present; not verified against real media in this environment |
@@ -33,4 +33,6 @@ Calibration regression coverage verifies automatic live-input selection, shot de
 
 Phone alignment regressions cover requesting/closing the calibration display in both display modes, automatic coded-board detection followed by live shots, blank-camera timeout and manual fallback on a 390-pixel phone viewport, undo, and zoom/drag/pinch coordinate behavior. Unit tests cover perspective and rotated coded-board recovery, soft focus, raised black levels, uneven illumination, color casts, missing/duplicate codes, rejected inconsistent center checks, and clipped frames. Real projector marker recognition under glare and extreme viewing angles still needs hardware validation.
 
-Coded-board regression tests verify a grid of 25 independent ground-truth screen positions after detection and exercise camera image → rectification → laser detector at center and all four edges. A manual regression reproduces outward expansion when inset points are mistaken for edges, then verifies the known-anchor mapping removes it. Synthetic error bounds are not a hardware accuracy claim. Session shot detection has been reported working on user hardware; the new coded board and placement correction still require a physical retest.
+Coded-board regression tests verify a grid of 25 independent ground-truth screen positions after detection and exercise camera image → rectification → laser detector at center and all four edges. A manual regression reproduces outward expansion when inset points are mistaken for edges, then verifies the known-anchor mapping removes it. Synthetic error bounds are not a hardware accuracy claim. The user reports successful coded-board alignment and accurate horizontal placement on hardware, with a remaining constant vertical offset. The optional screen-zero correction still requires a physical retest.
+
+Five-shot screen-zero tests cover correction direction, retained raw coordinates, rejection of incomplete/scattered/excessive groups, unclamped off-screen misses, per-shooter isolation, cancellation, invalidation, and exactly-once application in both display modes. Paired synthetic-camera tests collect and apply the optional zero through the real phone detector and then record live shots. Physical correction of the user-reported vertical offset remains pending.

@@ -78,6 +78,7 @@ function invalidate(reason, { keepCorners = false } = {}) {
   $("arm").disabled = true;
   $("testStatus").textContent = "0 / 3 pulses detected";
   if (!keepCorners) {
+    channel?.send({ type: "alignment-changed" });
     corners = [];
     manualPoints = [];
     calibrationTransform = null;
@@ -106,6 +107,11 @@ $("connect").onclick = () => {
     .on("joined", () => {
       connected = true;
       notify("Connected. Enable camera and align the projected frame.");
+    })
+    .on("zero-status", (m) => {
+      $("zeroStatus").textContent = m.message;
+      $("applyZero").disabled = !m.canApply;
+      $("cancelZero").disabled = !m.active;
     })
     .on("reference", receiveReference)
     .on("mode", (m) => {
@@ -253,6 +259,7 @@ function drawCorners() {
     `${mapping ? 4 : manualPoints.length} / 4 anchors${mapping ? " · aligned" : ""}`;
 }
 function applyCalibration(transform) {
+  channel?.send({ type: "alignment-changed" });
   corners = outerCorners(transform);
   calibrationTransform = transform;
   mapping = warpMap(transform, W, H, capture.width, capture.height);
@@ -380,7 +387,15 @@ function tryAuto(time) {
     autoCandidate = null;
   }
 }
+for (const action of ["start", "apply", "cancel", "clear"])
+  $(action + "Zero").onclick = () => {
+    if (!connected) return notify("Connect to the host first.");
+    if (action === "start" && !armed)
+      return notify("Arm detection before starting a screen zero.");
+    channel.send({ type: "zero-request", action });
+  };
 $("laserColor").onchange = () => {
+  channel?.send({ type: "alignment-changed" });
   detector.color = $("laserColor").value;
   invalidate("Laser color changed. Capture a new baseline and test pulses.", {
     keepCorners: true,
@@ -503,12 +518,12 @@ function processFrame() {
       }
     } else if (testing || armed) {
       const ref =
-        mode === "youtube"
+        mode === "youtube" && !patternActive
           ? null
           : chooseReference(out.data, referenceHistory, clock);
       lastReferenceAge = ref ? clock - ref.time : 9999;
       const hits = detector.detect(out.data, ref?.data, clock, {
-        temporalOnly: mode === "youtube" || !ref,
+        temporalOnly: (mode === "youtube" && !patternActive) || !ref,
       });
       for (const hit of hits) {
         const image = $("rectified").toDataURL("image/jpeg", 0.75);

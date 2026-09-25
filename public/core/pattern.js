@@ -43,3 +43,36 @@ export function drawCalibration(c) {
   x.font = "16px sans-serif";
   x.fillText("CENTER CHECK", 480, 348);
 }
+
+export function drawZero(c) {
+  c.width = 960;
+  c.height = 540;
+  const x = c.getContext("2d");
+  x.fillStyle = "#b0b0b0";
+  x.fillRect(0, 0, 960, 540);
+  x.strokeStyle = "#111";
+  x.lineWidth = 2;
+  x.beginPath();
+  x.arc(480, 270, 18, 0, Math.PI * 2);
+  x.moveTo(449, 270);
+  x.lineTo(511, 270);
+  x.moveTo(480, 239);
+  x.lineTo(480, 301);
+  x.stroke();
+  x.fillStyle = "#111";
+  x.textAlign = "center";
+  x.font = "bold 26px sans-serif";
+  x.fillText("FIVE-SHOT SCREEN ZERO", 480, 70);
+  x.font = "20px sans-serif";
+  x.fillText(
+    "Place five separate LASER STRIKES on the center crosshair",
+    480,
+    440,
+  );
+  x.font = "17px sans-serif";
+  x.fillText(
+    "Check the laser itself lands on the mark; review the result on your phone",
+    480,
+    478,
+  );
+}

@@ -179,6 +179,21 @@
             pulses → arm detection. Recalibrate whenever the camera, projector,
             or lighting changes.
           </p>
+          <h3>Optional five-shot screen zero</h3>
+          <p class="hint">
+            After arming, place five laser strikes on the zeroing mark. This
+            correction belongs to the shooter selected under Range and lasts
+            until alignment changes or the connection ends.
+          </p>
+          <div class="row">
+            <button id="startZero">Start five-shot zero</button
+            ><button id="applyZero" disabled>Apply zero</button>
+          </div>
+          <div class="row">
+            <button id="cancelZero" disabled>Cancel zero</button
+            ><button id="clearZero">Clear shooter zero</button>
+          </div>
+          <p id="zeroStatus" role="status">No screen zero applied.</p>
           <p id="telemetry" class="muted">No camera telemetry yet.</p>
           <label
             >Display/capture latency correction · ms<input

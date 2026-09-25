@@ -1,5 +1,6 @@
 import { ProjectionLink } from "./core/projection-link.js";
-import { drawCalibration } from "./core/pattern.js";
+import { calculateZero, applyZero, outsideScreen } from "./core/zero.js";
+import { drawCalibration, drawZero } from "./core/pattern.js";
 import { RangeScene } from "./range.js";
 import { Channel } from "./core/channel.js";
 import {
@@ -36,6 +37,10 @@ let currentTime = 0,
   sessionsSelect,
   lastArchivedStart = null;
 const pastSessions = [];
+const shooterZeros = new Map();
+let zeroSession = null,
+  zeroPattern = false,
+  runZero = null;
 let projection,
   uploadedFile = null,
   mediaKey = "3d",
@@ -459,9 +464,11 @@ $("stage").addEventListener("pointerdown", (e) => {
     recordShot({ ...point(e), time: now(), confidence: "review" }, true);
 });
 function calibrationPattern() {
-  drawCalibration($("calibration"));
+  (zeroPattern ? drawZero : drawCalibration)($("calibration"));
 }
 $("calibrate").onclick = () => {
+  cancelZero();
+  zeroPattern = false;
   if (running) stopRun();
   calibrating = true;
   $("calibration").hidden = false;
@@ -471,12 +478,142 @@ $("calibrate").onclick = () => {
   channel?.send({ type: "pattern", active: true });
 };
 $("stopCalibration").onclick = () => {
+  cancelZero();
+  zeroPattern = false;
   calibrating = false;
   $("calibration").hidden = true;
   $("stopCalibration").hidden = true;
   projection?.send({ type: "calibration", active: false });
   channel?.send({ type: "pattern", active: false });
 };
+function zeroShooter() {
+  return $("shooter").value.trim() || "Shooter";
+}
+function offsetText(value) {
+  return `${Math.abs(value.x * 100).toFixed(2)}% ${value.x < 0 ? "left" : "right"}, ${Math.abs(value.y * 100).toFixed(2)}% ${value.y < 0 ? "up" : "down"}`;
+}
+function updateZeroStatus(message) {
+  const name = zeroShooter(),
+    applied = shooterZeros.get(name);
+  if (!message) {
+    if (zeroSession?.candidate)
+      message = `${name}: five shots collected. Proposed correction: ${offsetText(zeroSession.candidate)}. Apply only if the laser strikes landed on the center mark.`;
+    else if (zeroSession)
+      message = `${name}: ${zeroSession.samples.length}/5 shots. ${now() < zeroSession.readyAt || phoneAdjusting ? "Hold fire while sensitivity settles." : "Place each actual laser strike on the center crosshair."}`;
+    else
+      message = `${name}: ${applied ? "screen zero applied — " + offsetText(applied) : "no screen zero applied"}.`;
+  }
+  $("zeroStatus").textContent = message;
+  $("applyZero").disabled = !zeroSession?.candidate;
+  $("cancelZero").disabled = !zeroSession;
+  channel?.send({
+    type: "zero-status",
+    message,
+    active: !!zeroSession,
+    canApply: !!zeroSession?.candidate,
+  });
+}
+function endZeroTarget() {
+  if (!zeroPattern) return;
+  zeroPattern = false;
+  calibrating = false;
+  $("calibration").hidden = true;
+  $("stopCalibration").hidden = true;
+  projection?.send({ type: "calibration", active: false });
+  channel?.send({ type: "pattern", active: false });
+}
+function cancelZero(message) {
+  if (zeroSession) clearTimeout(zeroSession.timer);
+  zeroSession = null;
+  endZeroTarget();
+  updateZeroStatus(message);
+}
+function clearAllZeros() {
+  shooterZeros.clear();
+  cancelZero();
+}
+function zeroAction(action) {
+  if (action === "cancel") return cancelZero();
+  if (running)
+    return updateZeroStatus(
+      "End the range session before changing screen zero.",
+    );
+  if (action === "clear") {
+    shooterZeros.delete(zeroShooter());
+    return cancelZero();
+  }
+  if (action === "apply") {
+    if (
+      !zeroSession?.candidate ||
+      zeroSession.shooter !== zeroShooter() ||
+      !phoneReady
+    )
+      return updateZeroStatus(
+        "Collect a valid five-shot group with detection armed first.",
+      );
+    shooterZeros.set(zeroSession.shooter, zeroSession.candidate);
+    return cancelZero();
+  }
+  if (action !== "start") return;
+  if (!phoneReady || phoneAdjusting)
+    return updateZeroStatus(
+      "Align, complete the pulse check, arm detection and wait for sensitivity to settle first.",
+    );
+  if (projection?.opening || (projection?.connected && !projection.ready))
+    return updateZeroStatus("Wait for the projector to finish loading first.");
+  cancelZero();
+  zeroSession = {
+    shooter: zeroShooter(),
+    samples: [],
+    candidate: null,
+    lastTime: -Infinity,
+    readyAt: now() + 1500,
+  };
+  zeroPattern = true;
+  calibrating = true;
+  history = [];
+  $("calibration").hidden = false;
+  $("stopCalibration").hidden = false;
+  calibrationPattern();
+  projection?.send({ type: "calibration", active: true, zero: true });
+  channel?.send({ type: "pattern", active: true });
+  zeroSession.timer = setTimeout(() => {
+    if (zeroSession) updateZeroStatus();
+  }, 1600);
+  updateZeroStatus();
+}
+function collectZero(shot) {
+  const session = zeroSession;
+  if (!session || session.candidate) return;
+  if (phoneAdjusting || now() < session.readyAt || shot.time < session.readyAt)
+    return;
+  if (shot.confidence !== "high")
+    return updateZeroStatus(
+      "Uncertain detection ignored. Keep the phone steady and wait for fresh reference frames.",
+    );
+  if (shot.time - session.lastTime < 300) return;
+  if (Math.abs(shot.x - 0.5) > 0.08 || Math.abs(shot.y - 0.5) > 0.08)
+    return updateZeroStatus(
+      "Off-center pulse ignored. Place the actual laser strike on the center crosshair.",
+    );
+  session.lastTime = shot.time;
+  session.samples.push({ x: shot.x, y: shot.y });
+  if (session.samples.length === 5) {
+    try {
+      session.candidate = calculateZero(session.samples);
+    } catch (error) {
+      return cancelZero(
+        `${error.message} No changes were applied to the shooter zero.`,
+      );
+    }
+  }
+  updateZeroStatus();
+}
+for (const action of ["start", "apply", "cancel", "clear"])
+  $(action + "Zero").onclick = () => zeroAction(action);
+$("shooter").addEventListener("input", () => cancelZero());
+updateZeroStatus();
+
 $("fullscreen").onclick = async () => {
   if (projection?.connected) {
     projection.window.focus();
@@ -582,6 +719,7 @@ function recordShot(m, demo = false) {
     projection.send({ type: "shot", runId: started, shot: m, demo });
     return;
   }
+  if (!demo) m = applyZero(m, runZero);
   const capture = m.time - (demo ? 0 : runLatency);
   if (capture < started) return;
   const elapsed = (capture - started) / 1000;
@@ -597,6 +735,7 @@ function recordShot(m, demo = false) {
   let score = { result: "review", target: null };
   if (mode === "3d" && synced && m.confidence === "high")
     score = range.score(m.x, m.y, h.elapsed);
+  if (outsideScreen(m)) score = { result: "miss", target: null };
   const shot = {
     ...m,
     ...score,
@@ -647,6 +786,7 @@ function startRun() {
   $("shotOverlay").replaceChildren();
   history = [];
   runShooter = $("shooter").value.trim() || "Shooter";
+  runZero = shooterZeros.get(runShooter) || null;
   runLatency = Math.max(0, Math.min(1000, Number($("latency").value) || 0));
   runDemo = $("demo").checked;
   updateShotInput();
@@ -676,6 +816,7 @@ function startRun() {
       demo: runDemo,
       latency: runLatency,
       shooter: runShooter,
+      zeroOffset: runZero,
     });
   $("startRun").disabled = true;
   $("stopRun").disabled = false;
@@ -847,7 +988,12 @@ async function connectHost(explicitToken) {
         const newlyArmed = m.ready && !phoneReady;
         phoneConnected = m.connected;
         phoneReady = m.ready;
-        if (!m.ready) phoneAdjusting = false;
+        if (!m.ready) {
+          phoneAdjusting = false;
+          cancelZero();
+        }
+        if (!m.connected) clearAllZeros();
+        updateZeroStatus();
         if (newlyArmed) {
           if (running && runDemo) stopRun();
           $("demo").checked = false;
@@ -864,17 +1010,20 @@ async function connectHost(explicitToken) {
         if (m.connected && !m.ready) channel.send({ type: "mode", mode });
         if (!m.ready && running && !runDemo) stopRun();
       })
+      .on("alignment-changed", clearAllZeros)
+      .on("zero-request", (m) => zeroAction(m.action))
       .on("calibration-request", (m) => {
         $(m.active ? "calibrate" : "stopCalibration").click();
       })
       .on("sensitivity", (m) => {
         phoneAdjusting = m.active;
+        if (zeroSession) updateZeroStatus();
         if (phoneReady)
           $("connection").textContent = m.active
             ? "Camera adjusting · hold fire"
             : "Camera calibrated";
       })
-      .on("shot", (m) => recordShot(m))
+      .on("shot", (m) => (zeroSession ? collectZero(m) : recordShot(m)))
       .on(
         "telemetry",
         (m) =>
@@ -882,6 +1031,7 @@ async function connectHost(explicitToken) {
             `${m.fps.toFixed(0)} fps · reference age ${Math.round(m.referenceAge)} ms · ${m.tests} test pulses · ${m.detections || 0} live detections${m.adapting ? " · adjusting sensitivity — hold fire" : ""}`),
       )
       .on("closed", (reason) => {
+        clearAllZeros();
         phoneReady = false;
         phoneConnected = false;
         if (running && !runDemo) stopRun();
@@ -965,6 +1115,7 @@ sessionsSelect.onchange = () => {
 };
 
 function invalidateProjection(message) {
+  clearAllZeros();
   phoneReady = false;
   channel?.send({ type: "reset" });
   if (running) stopRun();
@@ -997,6 +1148,7 @@ function configureProjection() {
     mediaKey,
     youtubeId: youtubeId($("youtubeUrl").value),
     calibrating,
+    zero: zeroPattern,
     offset: channel?.offset || 0,
   });
 }

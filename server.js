@@ -195,7 +195,11 @@ export function createRangeServer({
           serverTime: Date.now(),
         });
       if (role === "host") {
-        if (["reference", "mode", "pattern", "reset"].includes(m.type)) {
+        if (
+          ["reference", "mode", "pattern", "reset", "zero-status"].includes(
+            m.type,
+          )
+        ) {
           if (
             m.type === "reference" &&
             (typeof m.image !== "string" ||
@@ -207,6 +211,13 @@ export function createRangeServer({
           send(session.phone, m);
         }
       } else {
+        if (
+          m.type === "zero-request" &&
+          ["start", "apply", "cancel", "clear"].includes(m.action)
+        )
+          send(session.host, { type: "zero-request", action: m.action });
+        if (m.type === "alignment-changed")
+          send(session.host, { type: "alignment-changed" });
         if (m.type === "calibration-request" && typeof m.active === "boolean")
           send(session.host, { type: "calibration-request", active: m.active });
         if (m.type === "sensitivity")

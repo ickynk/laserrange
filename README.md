@@ -25,6 +25,7 @@ No build step, database, paid service, or native mobile app is needed. Dependenc
 - Scenario save/load in browser storage and versioned JSON import/export for sharing.
 - Host pairing link/QR code, six-digit phone pairing, role isolation, origin checks, and limited connection attempts.
 - Browser rear camera, automatic black-and-white coded-marker alignment with an independent center check and manual numbered-crosshair fallback, perspective rectification, ambient baseline, three test pulses, red/green selection, and adjustable threshold.
+- Optional five-shot screen zero per shooter, with reviewed correction, group checks and reset on alignment changes.
 - Experimental reference-frame subtraction, compact-blob detection, temporal pulse filtering, uncertainty flags, stale-reference handling, and readiness reset on disruption.
 - Raycast hit/miss/no-shoot scoring that accounts for barriers and historical scene time; screen position and approximate first-shot/split timing; audible start tone.
 - Uploaded-video playback with source-frame snapshots and manual scoring. YouTube IFrame playback with **phone camera snapshots**, manual scoring, and reduced-confidence detection.

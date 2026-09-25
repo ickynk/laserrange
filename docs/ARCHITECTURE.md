@@ -70,3 +70,11 @@ The authenticated phone can send a boolean `calibration-request` to its paired o
 Manual alignment uses separate numbered crosshair centers with explicit known inset coordinates. It uses the same screen-to-camera convention as automatic alignment. The preview overlays predicted crosshair locations and the derived outer frame so users can verify geometry. This is a planar mapping, not an intrinsic lens calibration or a correction for a curved projection surface. See [calibration design](CALIBRATION.md) for selection rationale, acceptance limits and hardware retest.
 
 The preview uses CSS translation/scaling with inverse pointer coordinates. Pinch/drag gestures never place corners; taps select original normalized camera coordinates. Preview zoom never alters the camera stream, capture dimensions or existing homography.
+
+## Per-shooter screen zero
+
+Authenticated phone `zero-request` commands route to the operator; `zero-status` returns progress and apply availability. The operator switches the same calibration layer to a neutral center-crosshair target. It collects five fresh, high-confidence camera detections after a 1.5-second settling period and sensitivity completion, with 300 ms minimum separation. Samples over 8% from center on either axis are ignored. A group is rejected if maximum distance from its mean exceeds 2% in normalized coordinates, or its resulting translation exceeds 5% on either axis. The candidate requires explicit Apply; aborted/rejected attempts preserve an existing correction.
+
+The correction is `(0.5 - meanX, 0.5 - meanY)` and is stored in a host-memory Map keyed by the trimmed shooter name. A run snapshots its correction. The active rendering/scoring owner applies it exactly once: the host in single-window mode, or the projector in separate-window mode. Shots retain rawX/rawY and the applied offset. Off-screen corrected shots are counted as misses without clamping or silently discarding them. Desktop demo coordinates are unchanged.
+
+Phone alignment invalidation/application and color changes notify the host with `alignment-changed`; this clears corrections. Network/source disruption also clears them. Disarming cancels a pending zero; camera alignment changes clear all profiles. Zero samples never enter session review/statistics. The target stays still during collection to avoid feedback-driven aiming changes.

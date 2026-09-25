@@ -7,6 +7,7 @@ for (const separate of [false, true])
     page,
     context,
   }) => {
+    test.setTimeout(60000);
     const { server, wss } = createRangeServer({
       adminToken: "browser-test-only",
     });
@@ -33,8 +34,11 @@ for (const separate of [false, true])
         const canvas = document.createElement("canvas");
         canvas.width = 960;
         canvas.height = 540;
-        const ctx = canvas.getContext("2d");
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
         let source = null;
+        // Explicit frame requests keep the synthetic source deterministic in headless Chromium.
+        const stream = canvas.captureStream(0);
+        const track = stream.getVideoTracks()[0];
         window.testPulse = false;
         const NativeWebSocket = window.WebSocket;
         window.WebSocket = class extends NativeWebSocket {
@@ -52,7 +56,7 @@ for (const separate of [false, true])
           }
         };
         Object.defineProperty(navigator.mediaDevices, "getUserMedia", {
-          value: async () => canvas.captureStream(30),
+          value: async () => stream,
         });
         Object.defineProperty(navigator.mediaDevices, "enumerateDevices", {
           value: async () => [],
@@ -63,8 +67,10 @@ for (const separate of [false, true])
           if (source) ctx.drawImage(source, 0, 0, 960, 540);
           if (window.testPulse) {
             ctx.fillStyle = "#ff1010";
-            ctx.fillRect(42, 42, 8, 8);
+            const point = window.pulsePosition || [42, 42];
+            ctx.fillRect(point[0], point[1], 8, 8);
           }
+          track.requestFrame();
         }, 20);
       });
       await phone.goto(`${origin}/phone#code=${code}`);
@@ -90,9 +96,10 @@ for (const separate of [false, true])
       await phone.locator("#test").click();
       async function pulse() {
         await phone.evaluate(() => (window.testPulse = true));
-        await phone.waitForTimeout(180);
+        // Software-rendered CI cameras need several delivered frames per pulse.
+        await phone.waitForTimeout(500);
         await phone.evaluate(() => (window.testPulse = false));
-        await phone.waitForTimeout(250);
+        await phone.waitForTimeout(500);
       }
       for (let i = 0; i < 3; i++) await pulse();
       await expect(phone.locator("#arm")).toBeEnabled();
@@ -160,6 +167,28 @@ for (const separate of [false, true])
       await expect(phone.locator("#testStatus")).toHaveText(
         "3 / 3 pulses detected",
       );
+      await page.locator("#startRun").click();
+      await phone.waitForTimeout(400);
+      await pulse();
+      await expect(page.locator("#statShots")).toHaveText("1");
+      // Run the optional zero through the real phone camera processing path.
+      await page.locator("#stopRun").click();
+      await phone.evaluate(() => (window.pulsePosition = [476, 255]));
+      await phone.locator("#startZero").click();
+      await expect(phone.locator("#zeroStatus")).toContainText("0/5");
+      await expect(phone.locator("#zeroStatus")).toContainText(
+        "Place each actual",
+      );
+      for (let i = 0; i < 5; i++) await pulse();
+      await expect(phone.locator("#applyZero")).toBeEnabled();
+      await phone.locator("#applyZero").click();
+      await expect(phone.locator("#zeroStatus")).toContainText(
+        "screen zero applied",
+      );
+      await expect(phone.locator("#phoneNotice")).toContainText(
+        "sensitivity updated",
+      );
+      await phone.evaluate(() => (window.pulsePosition = [42, 42]));
       await page.locator("#startRun").click();
       await phone.waitForTimeout(400);
       await pulse();

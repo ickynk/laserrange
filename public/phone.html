@@ -111,6 +111,24 @@
           ><button id="disarm">Disarm</button>
         </section>
       </div>
+      <section>
+        <h2>Optional five-shot screen zero</h2>
+        <p class="hint">
+          Arm detection first. Have the laser strikes land on the displayed
+          center mark. After five shots, apply the correction only if they
+          actually landed there. Shooter selection is on the operator's Range
+          tab.
+        </p>
+        <div class="row">
+          <button id="startZero">Start five-shot zero</button
+          ><button id="applyZero" disabled>Apply zero</button>
+        </div>
+        <div class="row">
+          <button id="cancelZero" disabled>Cancel zero</button
+          ><button id="clearZero">Clear shooter zero</button>
+        </div>
+        <p id="zeroStatus" role="status">No screen zero applied.</p>
+      </section>
       <canvas id="rectified" width="480" height="270"></canvas>
       <p id="cameraTelemetry" class="hint">Camera not running.</p>
       <p class="hint">

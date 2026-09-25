@@ -107,3 +107,13 @@ YouTube demo shots require manual scoring. Without a paired phone they do not ha
 Arming detection selects live input automatically. If you deliberately turn Demo back on, that session accepts mouse clicks; an incoming camera pulse displays an explanation instead of being silently ignored. End the demo and uncheck Demo to use the phone.
 
 Camera telemetry shows cumulative **live detections** independently of session shot totals. If that counter increases but session shots do not, check that a live session is running. If it does not increase, check the phone preview, laser color, exposure, and sensitivity. Calibration on a bright pattern does not guarantee optical detection on every background; clipped white spots or very short pulses may still be missed. Automatic refresh never raises the threshold above the value verified by the three-pulse check. Test hardware accuracy on the actual range image.
+
+### Optional five-shot screen zero
+
+Use this after alignment, baseline and the three-pulse check if registered shots have a consistent offset. Select the shooter on the operator’s **Range** tab, then tap **Start five-shot zero** on either the phone or the operator’s **Camera** tab. End any running session first.
+
+Wait for the hold-fire notice to clear. Place **five separate actual laser strikes on the center crosshair**, at least 0.3 seconds apart. The app averages their raw detected positions and proposes a horizontal/vertical translation. Tap **Apply zero** only if the laser itself landed on the mark. Aiming at the mark while the laser actually strikes elsewhere would mix device/sight/aiming error into the screen correction. Zeroing shots do not count toward session scores.
+
+Corrections are shown as percentages of screen width/height; physical inches cannot be calculated without measured projection dimensions. The correction is applied once to live camera scoring, impact marks and review coordinates, and does not alter mouse-demo clicks or camera geometry. Verify center and edge placement afterward. This corrects a constant offset, not distortion or scale errors.
+
+Each shooter name has its own correction within the current connected setup. Switching shooters selects the matching correction. **Clear shooter zero** removes it; **Cancel zero** keeps any previous correction. A new alignment, camera/color change, disconnect, display-source switch or page reload clears the stored corrections. They are intentionally not restored across hardware setups. Scattered groups and offsets over 5% of either screen dimension are rejected; retry alignment when necessary.

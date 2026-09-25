@@ -1,6 +1,7 @@
 import { RangeScene } from "./range.js";
 import { defaultScenario, validateScenario } from "./core/scenario.js";
-import { drawCalibration } from "./core/pattern.js";
+import { applyZero, outsideScreen } from "./core/zero.js";
+import { drawCalibration, drawZero } from "./core/pattern.js";
 import { joinOperator } from "./core/projection-link.js";
 const $ = (id) => document.getElementById(id);
 const range = new RangeScene($("display"));
@@ -8,6 +9,8 @@ let scenario = defaultScenario(),
   mode = "3d",
   running = false,
   calibrating = false,
+  zeroPattern = false,
+  shotZero = null,
   elapsed = 0,
   started = 0,
   runId = null,
@@ -166,8 +169,9 @@ async function configure(m) {
   }
   if (g !== generation || offline) return;
   calibrating = !!m.calibrating;
+  zeroPattern = m.zero === true;
   $("pattern").hidden = !calibrating;
-  if (calibrating) drawCalibration($("pattern"));
+  if (calibrating) (zeroPattern ? drawZero : drawCalibration)($("pattern"));
   $("impacts").replaceChildren();
   ready = true;
   updateInput();
@@ -196,8 +200,9 @@ async function handle(m) {
     case "calibration":
       stop();
       calibrating = !!m.active;
+      zeroPattern = m.zero === true;
       $("pattern").hidden = !calibrating;
-      if (calibrating) drawCalibration($("pattern"));
+      if (calibrating) (zeroPattern ? drawZero : drawCalibration)($("pattern"));
       history = [];
       updateInput();
       break;
@@ -214,6 +219,7 @@ async function handle(m) {
       demo = m.demo;
       latency = m.latency;
       shooter = m.shooter;
+      shotZero = m.zeroOffset || null;
       history = [];
       elapsed = 0;
       running = true;
@@ -263,6 +269,7 @@ function record(m, isDemo = false) {
     m.y > 1
   )
     return;
+  if (!isDemo) m = applyZero(m, shotZero);
   const capture = m.time - (isDemo ? 0 : latency),
     time = (capture - started) / 1000;
   if (!Number.isFinite(time) || time < 0 || time > scenario.duration) return;
@@ -281,6 +288,7 @@ function record(m, isDemo = false) {
     m.confidence === "high"
   )
     score = range.score(m.x, m.y, h.elapsed);
+  if (outsideScreen(m)) score = { result: "miss", target: null };
   const shot = {
     ...m,
     ...score,
