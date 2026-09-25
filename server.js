@@ -18,7 +18,11 @@ const equal = (a, b) =>
   Buffer.byteLength(a) === Buffer.byteLength(b) &&
   timingSafeEqual(Buffer.from(a), Buffer.from(b));
 const send = (ws, obj) => {
-  if (ws?.readyState === WebSocket.OPEN && ws.bufferedAmount < 2_000_000)
+  if (
+    ws?.readyState === WebSocket.OPEN &&
+    ws.bufferedAmount <
+      (["reference", "telemetry"].includes(obj.type) ? 150_000 : 2_000_000)
+  )
     ws.send(JSON.stringify(obj));
 };
 const mime = {
@@ -130,17 +134,16 @@ export function createRangeServer({
     }
     let session,
       role,
-      count = 0,
+      tokens = 200,
       windowStart = Date.now();
     const deadline = setTimeout(() => {
       if (!session) ws.close(1008, "Pairing timeout");
     }, 10000);
     ws.on("message", (raw) => {
-      if (Date.now() - windowStart > 1000) {
-        count = 0;
-        windowStart = Date.now();
-      }
-      if (++count > 50) return ws.close(1008, "Rate limit");
+      const time = Date.now();
+      tokens = Math.min(200, tokens + (time - windowStart) * 0.05);
+      windowStart = time;
+      if (--tokens < 0) return ws.close(1008, "Rate limit");
       let m;
       try {
         m = JSON.parse(raw);
@@ -167,27 +170,46 @@ export function createRangeServer({
           session = [...sessions.values()].find(
             (s) =>
               s.code === m.code &&
-              s.host &&
+              (s.host ||
+                (s.detachedAt && Date.now() - s.detachedAt < 120000)) &&
               Date.now() - s.created < 8 * 3600000,
           );
           if (session) failed.delete(ip);
         }
         if (!session) return ws.close(1008, "Invalid pairing credentials");
         role = m.role === "host" ? "host" : "phone";
-        if (session[role] && session[role] !== ws) {
+        const clientId =
+          typeof m.clientId === "string" && m.clientId.length <= 100
+            ? m.clientId
+            : null;
+        const sameClient = clientId && session[role + "Id"] === clientId;
+        if (session[role] && session[role] !== ws && !sameClient) {
           session = null;
           return ws.close(1008, "This role is already connected");
         }
+        const previous = session[role];
         session[role] = ws;
+        session[role + "Id"] = clientId;
+        if (role === "host") session.detachedAt = null;
+        if (previous && previous !== ws)
+          previous.close(4001, "Connection replaced");
         clearTimeout(deadline);
-        send(ws, { type: "joined", role, serverTime: Date.now() });
+        send(ws, {
+          type: "joined",
+          role,
+          hostOnline: !!session.host,
+          serverTime: Date.now(),
+        });
+        if (role === "host") send(session.phone, { type: "host-online" });
         send(session.host, {
           type: "phone-status",
           connected: !!session.phone,
           ready: session.ready,
+          sameClient: !!sameClient,
         });
         return;
       }
+      if (session[role] !== ws) return;
       if (m.type === "ping" && Number.isFinite(m.clientTime))
         return send(ws, {
           type: "pong",
@@ -280,18 +302,21 @@ export function createRangeServer({
           type: "phone-status",
           connected: false,
           ready: false,
+          reconnecting: true,
         });
       else {
         send(session.phone, { type: "host-offline" });
-        session.phone?.close(1001, "Host disconnected");
-        sessions.delete(session.id);
+        session.detachedAt = Date.now();
       }
     });
     ws.on("error", () => {});
   });
   const clean = setInterval(() => {
     for (const [id, s] of sessions)
-      if (!s.host && Date.now() - s.created > 60000) sessions.delete(id);
+      if (!s.host && Date.now() - (s.detachedAt || s.created) > 120000) {
+        s.phone?.close(1008, "Pairing expired; reconnect to the host");
+        sessions.delete(id);
+      }
     for (const [ip, f] of failed) if (Date.now() > f.until) failed.delete(ip);
   }, 60000);
   clean.unref();

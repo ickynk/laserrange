@@ -5,10 +5,10 @@ Version 0.1.0, hardware-validation alpha.
 | Check | Result |
 |---|---|
 | JavaScript syntax (`npm run check`) | Passed |
-| Node unit/integration suite (`npm test`) | 20 passed, 0 failed |
+| Node unit/integration suite (`npm test`) | 21 passed, 0 failed |
 | Playwright browser suite | 17 passed, 0 failed |
 | Rendered desktop interface | Screenshot inspected |
-| Physical iPhone / Android camera | User reports working auto-alignment and horizontal placement; vertical screen-zero retest pending |
+| Physical iPhone / Android camera | User reports working auto-alignment and horizontal placement; successful screen-zero correction; connection-recovery hardware retest pending |
 | TitanX / DryFireMag-associated laser | User hardware feedback received; device-specific accuracy unverified |
 | Projector optics and end-to-end latency | Not measured |
 | YouTube live playback / uploaded media codec compatibility | Implementation present; not verified against real media in this environment |
@@ -35,4 +35,6 @@ Phone alignment regressions cover requesting/closing the calibration display in 
 
 Coded-board regression tests verify a grid of 25 independent ground-truth screen positions after detection and exercise camera image → rectification → laser detector at center and all four edges. A manual regression reproduces outward expansion when inset points are mistaken for edges, then verifies the known-anchor mapping removes it. Synthetic error bounds are not a hardware accuracy claim. The user reports successful coded-board alignment and accurate horizontal placement on hardware, with a remaining constant vertical offset. The optional screen-zero correction still requires a physical retest.
 
-Five-shot screen-zero tests cover correction direction, retained raw coordinates, rejection of incomplete/scattered/excessive groups, unclamped off-screen misses, per-shooter isolation, cancellation, invalidation, and exactly-once application in both display modes. Paired synthetic-camera tests collect and apply the optional zero through the real phone detector and then record live shots. Physical correction of the user-reported vertical offset remains pending.
+Five-shot screen-zero tests cover correction direction, retained raw coordinates, rejection of incomplete/scattered/excessive groups, unclamped off-screen misses, per-shooter isolation, cancellation, invalidation, and exactly-once application in both display modes. Paired synthetic-camera tests collect and apply the optional zero through the real phone detector and then record live shots. The user reports successful physical correction of the vertical offset.
+
+Recovery regressions forcibly terminate each peer socket and verify the same pairing code, corners, three-pulse qualification and applied zero survive, then record new shots. Both display modes exercise looped uploaded video for over 40 seconds, overhead/perspective switching, and phone background/restore; the separate projector also exercises visibility restoration. Server coverage checks 100-message bursts, host-first/phone-first recovery and same-client socket replacement. Physical Wi-Fi loss and mobile browser suspension still require hardware retesting.

@@ -65,6 +65,7 @@ function ready(value) {
 }
 function invalidate(reason, { keepCorners = false } = {}) {
   autoUntil = 0;
+  resumeDetection = false;
   ready(false);
   adaptingUntil = 0;
   channel?.send({ type: "sensitivity", active: false });
@@ -99,14 +100,29 @@ function refreshSensitivity() {
   );
 }
 $("connect").onclick = () => {
-  if (channel) channel.ws.close();
+  if (channel) channel.close();
   connected = false;
   invalidate();
   channel = new Channel({ role: "phone", code: $("code").value.trim() });
   channel
-    .on("joined", () => {
+    .on("joined", (m) => {
+      connected = m.hostOnline !== false;
+      if (!connected)
+        return pauseDetection(
+          "Host reconnecting. Alignment retained; hold fire.",
+        );
+      if (m.reconnected && mapping && baselineDone) restoreConnection();
+      else notify("Connected. Enable camera and align the projected frame.");
+    })
+    .on("reconnecting", () => {
+      connected = false;
+      pauseDetection(
+        "Network interrupted. Reconnecting automatically; alignment retained.",
+      );
+    })
+    .on("host-online", () => {
       connected = true;
-      notify("Connected. Enable camera and align the projected frame.");
+      restoreConnection();
     })
     .on("zero-status", (m) => {
       $("zeroStatus").textContent = m.message;
@@ -147,7 +163,7 @@ $("connect").onclick = () => {
     })
     .on("host-offline", () => {
       connected = false;
-      invalidate("Host disconnected. Reconnect and calibrate.");
+      pauseDetection("Host reconnecting. Alignment retained; hold fire.");
     })
     .on("fault", notify);
 };
@@ -444,6 +460,7 @@ $("arm").onclick = () => {
   );
 };
 $("disarm").onclick = () => {
+  resumeDetection = false;
   ready(false);
   notify("Detection disarmed.");
 };
@@ -508,6 +525,10 @@ function processFrame() {
         $("threshold").value = detector.threshold;
         $("thresholdValue").textContent = detector.threshold;
         adaptingUntil = 0;
+        if (resumeDetection && connected && !document.hidden) {
+          resumeDetection = false;
+          ready(true);
+        }
         channel?.send({ type: "sensitivity", active: false });
         adaptationFrames = [];
         notify(
@@ -563,12 +584,34 @@ function processFrame() {
     });
   }
 }
+// Geometry and pulse qualification survive a transport or browser visibility pause.
+let resumeDetection = false;
+function pauseDetection(message) {
+  resumeDetection = resumeDetection || armed;
+  ready(false);
+  referenceHistory = [];
+  notify(message);
+}
+function restoreConnection() {
+  if (document.hidden || !mapping || !baselineDone) return;
+  if (!stream?.getVideoTracks().some((track) => track.readyState === "live"))
+    return notify("Camera stopped. Enable it again before resuming.");
+  refreshSensitivity();
+}
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
-    invalidate("Camera page was backgrounded. Recalibrate before resuming.", {
-      keepCorners: true,
-    });
+    pauseDetection(
+      "Camera page paused. Return here to resume with the same alignment.",
+    );
     wakeLock?.release();
+  } else {
+    restoreConnection();
+    navigator.wakeLock
+      ?.request("screen")
+      .then((lock) => {
+        wakeLock = lock;
+      })
+      .catch(() => {});
   }
 });
 window.addEventListener("orientationchange", () =>

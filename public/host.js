@@ -212,6 +212,8 @@ $("viewToggle").onclick = () => {
   drawing = null;
   $("stage").classList.remove("drawing");
   projectionView();
+  if (phoneConnected && !projection?.connected)
+    channel?.send({ type: "reset", preserveAlignment: true });
 };
 window.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
@@ -981,9 +983,25 @@ async function connectHost(explicitToken) {
     await updatePairLink();
     channel = new Channel({ role: "host", token: data.token });
     channel
-      .on("joined", () =>
-        notice("Host ready. Open Camera to pair a phone, or start a demo."),
-      )
+      .on("joined", (m) => {
+        notice(
+          m.reconnected
+            ? "Connection restored. Camera alignment retained; wait for sensitivity to settle, then start a new session."
+            : "Host ready. Open Camera to pair a phone, or start a demo.",
+        );
+        channel.send({ type: "mode", mode });
+        channel.send({ type: "pattern", active: calibrating });
+      })
+      .on("reconnecting", () => {
+        phoneReady = false;
+        phoneConnected = false;
+        cancelZero();
+        if (running && !runDemo) stopRun();
+        $("connection").textContent = "Network interrupted · reconnecting";
+        notice(
+          "Reconnecting automatically. Alignment and shooter corrections retained. Shots during the interruption cannot be recorded.",
+        );
+      })
       .on("phone-status", (m) => {
         const newlyArmed = m.ready && !phoneReady;
         phoneConnected = m.connected;
@@ -992,7 +1010,8 @@ async function connectHost(explicitToken) {
           phoneAdjusting = false;
           cancelZero();
         }
-        if (!m.connected) clearAllZeros();
+        if ((!m.connected && !m.reconnecting) || m.sameClient === false)
+          clearAllZeros();
         updateZeroStatus();
         if (newlyArmed) {
           if (running && runDemo) stopRun();
@@ -1004,10 +1023,15 @@ async function connectHost(explicitToken) {
         $("connection").textContent = m.ready
           ? "Camera calibrated"
           : m.connected
-            ? "Camera connected · calibrate"
-            : "Waiting for camera";
+            ? "Camera connected · detection not armed"
+            : m.reconnecting
+              ? "Camera reconnecting · alignment retained"
+              : "Waiting for camera";
         $("statusDot").style.background = m.ready ? "#89d9de" : "#f2bb70";
-        if (m.connected && !m.ready) channel.send({ type: "mode", mode });
+        if (m.connected && !m.ready) {
+          channel.send({ type: "mode", mode });
+          channel.send({ type: "pattern", active: calibrating });
+        }
         if (!m.ready && running && !runDemo) stopRun();
       })
       .on("alignment-changed", clearAllZeros)
@@ -1184,6 +1208,14 @@ function onProjectionMessage(m) {
   if (m.type === "scored-shot" && running && m.runId === started)
     acceptShot(m.shot);
   if (m.type === "ended" && running && m.runId === started) stopRun();
+  if (m.type === "suspended" || m.type === "stalled") {
+    if (running) stopRun();
+    notice(
+      "Projector paused or delayed. Camera alignment retained; restore the display before starting a new session.",
+    );
+  }
+  if (m.type === "resumed" || m.type === "recovered")
+    channel?.send({ type: "reset", preserveAlignment: true });
   if (m.type === "geometry-changed") {
     if (m.reason) invalidateProjection(m.reason);
     else {

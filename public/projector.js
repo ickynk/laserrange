@@ -399,9 +399,6 @@ requestAnimationFrame(animate);
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
     stop();
-    send({
-      type: "geometry-changed",
-      reason: "Projector hidden. Restore it and recalibrate.",
-    });
-  }
+    send({ type: "suspended" });
+  } else send({ type: "resumed" });
 });

@@ -46,7 +46,7 @@ Record the configuration and observations below. Begin with the TitanX, then rep
 | Barrier scoring | Place a target behind a solid barrier and shoot its obscured position | Miss/blocked result, never a target hit |
 | Role randomization | Repeat sessions; verify the visible armed/unarmed symbol matches score | Correct classification for every displayed target |
 | Video review | Pause near a moving scene feature, fire a pulse, inspect retained source/camera frame | Placement and approximate time identifiable; mark uncertainty |
-| Disruption | Background phone, unplug camera/network, rotate phone, change camera or color | Readiness removed and recalibration required |
+| Disruption | Background/restore phone, briefly interrupt network, minimize/restore projector, rotate phone or change camera/color | Temporary interruptions pause scoring and recover without corner/pulse/zero loss; camera/geometry changes require recalibration |
 
 Start with long visible test pulses, then use the actual devices. If a pulse is shorter than the camera exposure interval, some missed pulses are physically unavoidable. Browser camera auto-exposure can vary during a session; reduce brightness/clipping and keep light stable. These controls do not guarantee success.
 
@@ -67,3 +67,5 @@ Before moving-target tests, put five stationary aiming marks at screen center an
 ## Constant vertical-offset retest
 
 User feedback confirms automated coded-board alignment works and horizontal placement agrees, with a roughly one-inch upward offset. Use the optional five-shot screen zero after arming: actual laser strikes must land at the displayed center crosshair. Apply the proposed correction, then check center and four edge locations. An upward detection bias should yield a downward screen correction. Switch shooter names to verify separate corrections. If edge errors vary rather than remaining constant, revisit alignment/lens geometry; screen zero is translation only.
+
+The user reports the optional five-shot correction works correctly. Next hardware regression: overhead/perspective transitions, video beyond 35 seconds with a longer scenario duration, and brief Wi-Fi interruptions while verifying automatic recovery and retained correction.

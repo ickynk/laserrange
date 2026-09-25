@@ -15,7 +15,7 @@
 - Projector-owned rendered frame history, resolved scenario roles, hit scoring, and persistent impact marks.
 - Live projector preview for 3D scenes and uploaded video; YouTube plays only in the projector when connected.
 - Operator-side start/stop, play/pause, seek, shooter controls, calibration, and scenario editing.
-- Calibration survives operator layout changes; projector resize, closure, loss of heartbeat, or backgrounding stops the affected session and requires recalibration.
+- Calibration survives operator layout changes, fixed-frame resizing, transient transport interruptions and backgrounding. Confirmed display-source changes still require realignment.
 - Paired synthetic-camera and two-window regression coverage, including an uploaded-video fixture and mocked YouTube player.
 
 ## Hardware phase: optical reliability

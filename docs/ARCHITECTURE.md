@@ -31,7 +31,7 @@ The alpha does not decode a frame ID from the projection, identify rolling-shutt
 
 ## WebSocket messages
 
-The first message must be `join` with `role: host` and the session secret, or `role: phone` and the pairing code. Each session permits one active host and one active phone. Replacing an active role is refused. A disconnected host ends the session; phone disconnect revokes readiness. The server does not log images or pairing credentials.
+The first message must be `join` with `role: host` and the session secret, or `role: phone` and the pairing code. Each session permits one active host and one active phone. Replacing another active client is refused; a random per-page client ID permits the same authenticated client to replace its own half-open socket. A disconnected host retains the session for a two-minute reconnection grace period; phone disconnect revokes readiness. The server does not log images or pairing credentials.
 
 Host → phone: `reference`, `mode`, `pattern`, `reset`.
 
@@ -39,7 +39,7 @@ Phone → host: `ready`, `shot`, `telemetry`.
 
 Both roles: `ping`; server replies with `pong` including server time.
 
-Messages are bounded to 400 KB, 50 messages/second per connection, and backpressure is capped. Coordinates, event times, JPEG envelopes, roles, and credentials are checked. Sessions and rate-limit entries expire in memory. This is LAN-oriented session security, not a multi-tenant authorization system.
+Messages are bounded to 400 KB, a token bucket refilling at 50 messages/second with a 200-message burst allowance, and backpressure is capped. Coordinates, event times, JPEG envelopes, roles, and credentials are checked. Sessions and rate-limit entries expire in memory. This is LAN-oriented session security, not a multi-tenant authorization system.
 
 ## Scenario schema v1
 
@@ -59,7 +59,7 @@ Randomized roles resolve once per run. No tactical decision engine or real-perso
 
 The operator sends validated scene changes, a single set of resolved randomized roles, start/stop, media commands, and calibration commands. Uploaded files are cloned as Blobs into the projector and get their own local object URLs. The projector owns its camera aspect ratio, frame history, elapsed scene time, surface marks, and raycast scoring; scored events return to the operator for review. Uploaded video uses the projector's retained frames for snapshots; YouTube still requires camera snapshots and manual scoring.
 
-The operator does not produce camera reference frames while the separate projector is connected. Its 3D/video preview uses the projector's normalized JPEG image. Its renderer runs only when needed for editing. Fixed-frame projector size and content changes retain corner mapping and pulse qualification, then request an automatic sensitivity refresh. Operator layout changes do not affect the separate projection. A physical change to the projected boundary requires explicit corner reset; the app cannot infer mount movement from a browser resize. Heartbeats detect a lost peer after approximately 3.5 seconds; closure events stop sooner when delivered. Window minimization/backgrounding stops the relevant session. This is a same-computer two-window workflow, not a network projector client or multi-operator system.
+The operator does not produce camera reference frames while the separate projector is connected. Its 3D/video preview uses the projector's normalized JPEG image. Its renderer runs only when needed for editing. Fixed-frame projector size and content changes retain corner mapping and pulse qualification, then request an automatic sensitivity refresh. Operator layout changes do not affect the separate projection. A physical change to the projected boundary requires explicit corner reset; the app cannot infer mount movement from a browser resize. Ten seconds without projector messages pauses scoring but retains the MessagePort; traffic resuming requests a sensitivity refresh. Only confirmed closure/navigation tears down the link. Window minimization/backgrounding stops the relevant session without clearing calibration. This is a same-computer two-window workflow, not a network projector client or multi-operator system.
 
 Automatic refresh uses about 900 ms and at least 10 camera frames, seeds onset history from the last background frame, and caps the learned threshold at the pulse-validated setting. It suppresses detections while adjusting and reports that state to the operator; starting a live session is gated during adjustment. It does not continuously relearn from moving targets or laser pulses. Source switches between single and separate projector windows still require fresh alignment. Arming selects live camera input; explicit demo sessions retain mouse-only behavior with a diagnostic for received camera pulses.
 
@@ -78,3 +78,9 @@ Authenticated phone `zero-request` commands route to the operator; `zero-status`
 The correction is `(0.5 - meanX, 0.5 - meanY)` and is stored in a host-memory Map keyed by the trimmed shooter name. A run snapshots its correction. The active rendering/scoring owner applies it exactly once: the host in single-window mode, or the projector in separate-window mode. Shots retain rawX/rawY and the applied offset. Off-screen corrected shots are counted as misses without clamping or silently discarding them. Desktop demo coordinates are unchanged.
 
 Phone alignment invalidation/application and color changes notify the host with `alignment-changed`; this clears corrections. Network/source disruption also clears them. Disarming cancels a pending zero; camera alignment changes clear all profiles. Zero samples never enter session review/statistics. The target stays still during collection to avoid feedback-driven aiming changes.
+
+## Transport recovery
+
+WebSocket clients retry temporary failures with backoff from 0.5 to 5 seconds plus jitter, using the same session credentials and per-page client ID. Thirty seconds without inbound traffic triggers reconnect; a pending join has a 15-second timeout. Policy rejection, oversized payloads and explicit replacement terminate retries with a visible recovery message. Intentional disconnect cancels retries. A host outage keeps the phone socket and session alive for a two-minute grace period; both peers can reconnect in either order. Server restart or expiry still requires pairing again.
+
+Preview/telemetry frames are dropped above 150 KB of queued outbound data so stale imagery does not crowd out controls. Shot traffic is never queued for later reconnect replay. Genuine disconnection ends the current scored session and cancels pending zero collection, retaining completed shooter corrections and fixed camera geometry. Detection resumes after fresh sensitivity frames arrive; the user starts a new scored session. Phone backgrounding pauses detection and follows the same restoration path, provided the camera stream remains live. Changing camera, physical alignment or display source still invalidates geometry.

@@ -92,3 +92,73 @@ test("Authenticated pairing routes reference frames and shots, isolates sessions
   assert.equal((await fetch(`${origin}/server.js`)).status, 404);
   assert.match(await (await fetch(origin)).text(), /LASER RANGE/);
 });
+
+test("Pairing survives host/phone interruption and accepts delayed message bursts", async (t) => {
+  const { server, wss } = createRangeServer({ adminToken: "recovery-test" });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(() => {
+    for (const ws of wss.clients) ws.terminate();
+    server.close();
+  });
+  const origin = `http://127.0.0.1:${server.address().port}`;
+  const session = await (
+    await fetch(`${origin}/api/session`, {
+      method: "POST",
+      headers: { Authorization: "Bearer recovery-test" },
+    })
+  ).json();
+  async function join(role, clientId) {
+    const ws = new WebSocket(origin.replace("http", "ws"), { origin });
+    await once(ws, "open");
+    const next = receive(ws, "joined");
+    ws.send(
+      JSON.stringify({
+        type: "join",
+        role,
+        clientId,
+        token: session.token,
+        code: session.code,
+      }),
+    );
+    const joined = await next;
+    return { ws, joined };
+  }
+  let { ws: host } = await join("host", "original-host");
+  let { ws: phone } = await join("phone", "original-phone");
+  let next = receive(host, "pong", (m) => m.clientTime === 99);
+  for (let i = 0; i < 100; i++)
+    host.send(JSON.stringify({ type: "ping", clientTime: i }));
+  await next; // old 50-per-second cutoff disconnected this legitimate backlog
+  next = receive(phone, "host-offline");
+  host.close();
+  await next;
+  assert.equal(phone.readyState, WebSocket.OPEN);
+  const closed = once(phone, "close");
+  phone.close();
+  await closed;
+  const resumed = await join("phone", "original-phone");
+  phone = resumed.ws;
+  assert.equal(resumed.joined.hostOnline, false);
+  next = receive(phone, "host-online");
+  ({ ws: host } = await join("host", "original-host"));
+  await next;
+  next = receive(host, "phone-status", (m) => m.ready);
+  phone.send(JSON.stringify({ type: "ready", ready: true }));
+  await next;
+  // Replacing a half-open connection for the same client must not revoke its successor.
+  const replaced = once(phone, "close");
+  ({ ws: phone } = await join("phone", "original-phone"));
+  assert.equal((await replaced)[0], 4001);
+  next = receive(host, "shot");
+  phone.send(
+    JSON.stringify({
+      type: "shot",
+      x: 0.5,
+      y: 0.5,
+      time: Date.now(),
+      confidence: "high",
+    }),
+  );
+  assert.equal((await next).confidence, "high");
+});

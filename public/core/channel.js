@@ -1,16 +1,31 @@
 export class Channel extends EventTarget {
   constructor(credentials) {
     super();
+    this.credentials = { ...credentials, clientId: crypto.randomUUID() };
     this.offset = 0;
     this.bestRTT = Infinity;
-    this.ws = new WebSocket(
+    this.attempt = 0;
+    this.connect();
+  }
+  emit(type, detail) {
+    this.dispatchEvent(new CustomEvent(type, { detail }));
+  }
+  connect() {
+    if (this.stopped) return;
+    const ws = (this.ws = new WebSocket(
       `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}`,
+    ));
+    this.lastSeen = Date.now();
+    const deadline = setTimeout(
+      () => ws.close(4000, "Connection timeout"),
+      15000,
     );
-    this.ws.onopen = () => {
-      this.send({ type: "join", ...credentials });
-    };
-    this.ws.onmessage = (e) => {
+    ws.onopen = () =>
+      ws.send(JSON.stringify({ type: "join", ...this.credentials }));
+    ws.onmessage = (e) => {
+      if (ws !== this.ws) return;
       const m = JSON.parse(e.data);
+      this.lastSeen = Date.now();
       if (m.type === "pong") {
         const rtt = Date.now() - m.clientTime;
         if (rtt < this.bestRTT) {
@@ -19,35 +34,58 @@ export class Channel extends EventTarget {
         }
       }
       if (m.type === "joined") {
+        clearTimeout(deadline);
+        m.reconnected = !!this.joined;
+        this.joined = true;
+        this.attempt = 0;
+        this.bestRTT = Infinity;
         this.offset = m.serverTime - Date.now();
+        clearInterval(this.timer);
         this.ping();
-        this.timer = setInterval(() => this.ping(), 3000);
+        this.timer = setInterval(() => {
+          if (Date.now() - this.lastSeen > 30000)
+            ws.close(4000, "Connection stalled");
+          else this.ping();
+        }, 3000);
       }
-      this.dispatchEvent(new CustomEvent(m.type, { detail: m }));
+      this.emit(m.type, m);
     };
-    this.ws.onclose = (e) => {
+    ws.onclose = (e) => {
+      clearTimeout(deadline);
+      if (ws !== this.ws || this.stopped) return;
       clearInterval(this.timer);
-      this.dispatchEvent(
-        new CustomEvent("closed", { detail: e.reason || "Connection closed" }),
+      if ([1008, 1009, 4001].includes(e.code)) {
+        this.stopped = true;
+        return this.emit("closed", e.reason || "Connection rejected");
+      }
+      this.emit(
+        "reconnecting",
+        e.reason || "Network interrupted; reconnecting automatically",
+      );
+      const delay = Math.min(5000, 500 * 2 ** Math.min(this.attempt++, 4));
+      this.retry = setTimeout(
+        () => this.connect(),
+        delay + Math.random() * 200,
       );
     };
-    this.ws.onerror = () =>
-      this.dispatchEvent(
-        new CustomEvent("fault", {
-          detail:
-            "Connection failed. Check the host address and HTTPS certificate.",
-        }),
-      );
+    ws.onerror = () => {}; // onclose drives the single retry path.
+  }
+  close() {
+    this.stopped = true;
+    clearTimeout(this.retry);
+    clearInterval(this.timer);
+    this.ws.close();
   }
   on(type, fn) {
     this.addEventListener(type, (e) => fn(e.detail));
     return this;
   }
   send(m) {
-    if (
-      this.ws.readyState === WebSocket.OPEN &&
-      this.ws.bufferedAmount < 1_000_000
-    )
+    // Drop stale preview frames before they can block control/shot traffic.
+    const limit = ["reference", "telemetry"].includes(m.type)
+      ? 150_000
+      : 1_000_000;
+    if (this.ws.readyState === WebSocket.OPEN && this.ws.bufferedAmount < limit)
       this.ws.send(JSON.stringify(m));
   }
   ping() {

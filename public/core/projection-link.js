@@ -19,6 +19,10 @@ export class ProjectionLink {
       this.port = channel.port1;
       this.port.onmessage = (event) => {
         this.lastSeen = Date.now();
+        if (this.stalled) {
+          this.stalled = false;
+          this.onMessage({ type: "recovered" });
+        }
         if (event.data.type === "heartbeat") return;
         this.onMessage(event.data);
       };
@@ -37,13 +41,22 @@ export class ProjectionLink {
       if (!this.window) return;
       if (
         this.window.closed ||
-        (this.connected && Date.now() - this.lastSeen > 3500) ||
         (this.opening && Date.now() - this.openedAt > 15000)
       )
         this.disconnect(
           "Projector closed or stopped responding. Reopen it and recalibrate before a live session.",
         );
-      else this.send({ type: "heartbeat" });
+      else {
+        if (
+          this.connected &&
+          Date.now() - this.lastSeen > 10000 &&
+          !this.stalled
+        ) {
+          this.stalled = true;
+          this.onMessage({ type: "stalled" });
+        }
+        this.send({ type: "heartbeat" });
+      }
     }, 500);
     window.addEventListener("pagehide", () => {
       this.send({ type: "operator-offline" });
@@ -128,7 +141,10 @@ export function joinOperator(onMessage, onLost) {
       clearInterval(timer);
       return;
     }
-    if (window.opener?.closed || Date.now() - lastSeen > 3500) return lose();
+    if (window.opener?.closed) return lose();
+    // Timer throttling is not evidence that the opener disappeared. Keep the
+    // port so messages resume naturally; pause scoring while it is unresponsive.
+    if (Date.now() - lastSeen > 10000) onMessage({ type: "stop" });
     send({ type: "heartbeat" });
   }, 500);
   window.addEventListener("pagehide", () =>

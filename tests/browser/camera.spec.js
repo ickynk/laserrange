@@ -7,10 +7,17 @@ for (const separate of [false, true])
     page,
     context,
   }) => {
-    test.setTimeout(60000);
+    test.setTimeout(120000);
     const { server, wss } = createRangeServer({
       adminToken: "browser-test-only",
     });
+    const peers = new Map();
+    wss.on("connection", (ws) =>
+      ws.on("message", (raw) => {
+        const m = JSON.parse(raw);
+        if (m.type === "join") peers.set(m.role, ws);
+      }),
+    );
     server.listen(0, "127.0.0.1");
     await once(server, "listening");
     const origin = `http://127.0.0.1:${server.address().port}`;
@@ -159,6 +166,25 @@ for (const separate of [false, true])
       await expect(phone.locator("#phoneNotice")).toContainText(
         "sensitivity updated",
       );
+      // Exercise real playback beyond the reported 35-second failure point.
+      await page.locator("[data-tab=range]").click();
+      await page.locator("#duration").fill("90");
+      await page.locator("#duration").dispatchEvent("change");
+      await (projector || page)
+        .locator(separate ? "#media" : "#movie")
+        .evaluate((video) => {
+          video.loop = true;
+        });
+      await phone.waitForTimeout(1600);
+      await page.locator("#startRun").click();
+      await phone.waitForTimeout(40000);
+      await expect(page.locator("#stopRun")).toBeEnabled();
+      await expect(page.locator("#connection")).toHaveText("Camera calibrated");
+      await expect(phone.locator("#cornerStatus")).toHaveText(aligned);
+      await pulse();
+      await expect(page.locator("#statShots")).toHaveText("1");
+      await page.locator("#stopRun").click();
+      await page.locator("[data-tab=video]").click();
       await page.locator("#backTo3d").click();
       // Wait for the new mode's automatic refresh, not the previous notice.
       await phone.waitForTimeout(1500);
@@ -193,6 +219,57 @@ for (const separate of [false, true])
       await phone.waitForTimeout(400);
       await pulse();
       await expect(page.locator("#statShots")).toHaveText("1");
+      // Editing changes content, never the fixed camera geometry.
+      await page.locator("#stopRun").click();
+      await page.locator("[data-tab=range]").click();
+      await page.locator("#viewToggle").click();
+      await page.locator("#viewToggle").click();
+      await phone.waitForTimeout(1600);
+      await expect(phone.locator("#cornerStatus")).toHaveText(aligned);
+      for (const role of ["phone", "host"]) {
+        peers.get(role).terminate();
+        await expect(page.locator("#connection")).toContainText("reconnect", {
+          ignoreCase: true,
+        });
+        await expect(page.locator("#connection")).toHaveText(
+          "Camera calibrated",
+          { timeout: 10000 },
+        );
+        await expect(phone.locator("#testStatus")).toHaveText(
+          "3 / 3 pulses detected",
+        );
+        await expect(phone.locator("#cornerStatus")).toHaveText(aligned);
+        await expect(phone.locator("#zeroStatus")).toContainText(
+          "screen zero applied",
+        );
+        await expect(page.locator("#pairCode")).toHaveText(code);
+        await page.locator("#startRun").click();
+        await phone.waitForTimeout(400);
+        await pulse();
+        await expect(page.locator("#statShots")).toHaveText("1");
+        await page.locator("#stopRun").click();
+      }
+      if (projector) {
+        await projector.evaluate(() => {
+          Object.defineProperty(document, "hidden", {
+            configurable: true,
+            value: true,
+          });
+          document.dispatchEvent(new Event("visibilitychange"));
+        });
+        await phone.waitForTimeout(4000); // old 3.5-second disconnect threshold
+        await projector.evaluate(() => {
+          Object.defineProperty(document, "hidden", {
+            configurable: true,
+            value: false,
+          });
+          document.dispatchEvent(new Event("visibilitychange"));
+        });
+        await expect(phone.locator("#cornerStatus")).toHaveText(aligned);
+        await expect(phone.locator("#arm")).toHaveText("Detection armed");
+        await phone.waitForTimeout(1600);
+      }
+      await page.locator("#startRun").click();
       await phone.evaluate(() => {
         Object.defineProperty(document, "hidden", {
           configurable: true,
@@ -201,6 +278,17 @@ for (const separate of [false, true])
         document.dispatchEvent(new Event("visibilitychange"));
       });
       await expect(page.locator("#stopRun")).toBeDisabled();
+      await phone.evaluate(() => {
+        Object.defineProperty(document, "hidden", {
+          configurable: true,
+          value: false,
+        });
+        document.dispatchEvent(new Event("visibilitychange"));
+      });
+      await expect(page.locator("#connection")).toHaveText("Camera calibrated");
+      await expect(phone.locator("#testStatus")).toHaveText(
+        "3 / 3 pulses detected",
+      );
       expect(errors).toEqual([]);
     } catch (error) {
       console.log(
