@@ -1,89 +1,112 @@
-import { homography, project, unitCorners, validQuad } from "./geometry.js";
-export const markerCenters = [
-  [0.035, 0.035],
-  [0.965, 0.035],
-  [0.965, 0.965],
-  [0.035, 0.965],
-];
-// Cyan rings with dark centers are distinguished from ordinary cyan objects.
-// Ambiguous or clipped patterns deliberately fall back to manual alignment.
-export function detectCorners(data, w, h) {
-  const mask = new Uint8Array(w * h),
-    groups = [];
-  const cyan = (i) =>
-    data[i + 1] > 85 &&
-    data[i + 2] > 85 &&
-    Math.min(data[i + 1], data[i + 2]) - data[i] > 40;
-  for (let p = 0; p < mask.length; p++) mask[p] = cyan(p * 4) ? 1 : 0;
-  for (let p = 0; p < mask.length; p++)
-    if (mask[p]) {
-      const stack = [p];
-      mask[p] = 0;
-      let n = 0,
-        sx = 0,
-        sy = 0,
-        minX = w,
-        maxX = 0,
-        minY = h,
-        maxY = 0;
-      while (stack.length) {
-        const q = stack.pop(),
-          x = q % w,
-          y = Math.floor(q / w);
-        n++;
-        sx += x;
-        sy += y;
-        minX = Math.min(minX, x);
-        maxX = Math.max(maxX, x);
-        minY = Math.min(minY, y);
-        maxY = Math.max(maxY, y);
-        for (const z of [q - 1, q + 1, q - w, q + w])
-          if (
-            z >= 0 &&
-            z < mask.length &&
-            mask[z] &&
-            Math.abs((z % w) - x) <= 1
-          ) {
-            mask[z] = 0;
-            stack.push(z);
-          }
-      }
-      const bw = maxX - minX + 1,
-        bh = maxY - minY + 1,
-        fill = n / (bw * bh),
-        cx = sx / n,
-        cy = sy / n;
-      if (
-        n < 12 ||
-        n > w * h * 0.015 ||
-        bw < 5 ||
-        bh < 5 ||
-        bw / bh < 0.3 ||
-        bw / bh > 3.3 ||
-        fill < 0.22 ||
-        fill > 0.92
-      )
-        continue;
-      const i = (Math.round(cy) * w + Math.round(cx)) * 4;
-      if (cyan(i) || Math.max(data[i], data[i + 1], data[i + 2]) > 150)
-        continue;
-      groups.push([cx / (w - 1), cy / (h - 1)]);
-    }
-  if (groups.length !== 4)
-    throw Error("Could not identify exactly four corner rings.");
-  groups.sort((a, b) => a[1] - b[1]);
-  const ordered = [
-    ...groups.slice(0, 2).sort((a, b) => a[0] - b[0]),
-    ...groups.slice(2).sort((a, b) => b[0] - a[0]),
-  ];
-  if (!validQuad(ordered))
-    throw Error("Corner pattern is too small or distorted.");
-  const transform = homography(markerCenters, ordered),
-    corners = unitCorners.map(([x, y]) => project(transform, x, y));
+import { AR } from "../vendor/aruco/aruco.js";
+import { CV } from "../vendor/aruco/cv.js";
+import {
+  homography,
+  fitHomography,
+  project,
+  unitCorners,
+  validQuad,
+} from "./geometry.js";
+import {
+  boardMarkers,
+  markerQuad,
+  manualAnchors,
+  dictionaryName,
+} from "./calibration-board.js";
+const detector = new AR.Detector({ dictionaryName, maxHammingDistance: 3 });
+export function outerCorners(transform) {
+  const corners = unitCorners.map(([x, y]) => project(transform, x, y));
   if (
     !validQuad(corners) ||
     corners.some((p) => p.some((v) => v < -0.005 || v > 1.005))
   )
-    throw Error("The entire projected frame must be visible.");
-  return corners.map((p) => p.map((v) => Math.max(0, Math.min(1, v))));
+    throw Error("Keep the entire projected frame inside the camera view.");
+  return corners; // Never clamp an extrapolated frame: doing so changes scale.
+}
+export function manualCalibration(points) {
+  if (!validQuad(points))
+    throw Error("Tap crosshair centers 1 → 2 → 3 → 4 in order.");
+  const transform = homography(manualAnchors, points);
+  return { transform, corners: outerCorners(transform) };
+}
+export function fitBoard(markers, w, h) {
+  const detected = new Map();
+  for (const marker of markers)
+    if (boardMarkers.some((m) => m.id === marker.id)) {
+      if (detected.has(marker.id))
+        throw Error(
+          "Duplicate calibration codes detected. Keep only this projector board in view.",
+        );
+      detected.set(marker.id, marker);
+    }
+  const missing = boardMarkers.filter((m) => !detected.has(m.id));
+  if (missing.length)
+    throw Error(
+      `${5 - missing.length}/5 codes visible. Move closer or adjust exposure; keep all five codes in view.`,
+    );
+  const from = [],
+    to = [];
+  for (const marker of boardMarkers.slice(0, 4)) {
+    const q = detected.get(marker.id).corners;
+    const lengths = q.map((p, i) =>
+      Math.hypot(p.x - q[(i + 1) % 4].x, p.y - q[(i + 1) % 4].y),
+    );
+    if (Math.min(...lengths) < 24)
+      throw Error("Calibration codes are too small. Move the camera closer.");
+    from.push(...markerQuad(marker));
+    to.push(...q.map((p) => [p.x / (w - 1), p.y / (h - 1)]));
+  }
+  const transform = fitHomography(from, to),
+    corners = outerCorners(transform);
+  function error(src, dst) {
+    return src.map(([x, y], i) => {
+      const p = project(transform, x, y);
+      return Math.hypot((p[0] - dst[i][0]) * w, (p[1] - dst[i][1]) * h);
+    });
+  }
+  const residuals = error(from, to),
+    rms = Math.sqrt(
+      residuals.reduce((sum, e) => sum + e * e, 0) / residuals.length,
+    );
+  const check = boardMarkers[4],
+    actual = detected
+      .get(check.id)
+      .corners.map((p) => [p.x / (w - 1), p.y / (h - 1)]);
+  const checkError = Math.max(...error(markerQuad(check), actual));
+  const tolerance = Math.max(2, Math.min(w, h) * 0.006);
+  if (
+    rms > tolerance ||
+    Math.max(...residuals) > tolerance * 2 ||
+    checkError > tolerance * 1.5
+  )
+    throw Error(
+      "Codes found, but alignment is inconsistent. Use the normal 1× lens, flatten the screen and reduce glare.",
+    );
+  return { transform, corners, rms, checkError, markers: 5 };
+}
+export function detectCalibration(data, w, h) {
+  // Try multiple local threshold windows for uneven illumination and soft focus.
+  CV.grayscale({ data, width: w, height: h }, detector.grey);
+  let lastError;
+  for (const radius of [2, 4, 7]) {
+    CV.adaptiveThreshold(detector.grey, detector.thres, radius, 7);
+    detector.contours = CV.findContours(detector.thres, detector.binary);
+    let candidates = detector.findCandidates(
+      detector.contours,
+      w * 0.01,
+      0.035,
+      12,
+    );
+    candidates = detector.notTooNear(detector.clockwiseCorners(candidates), 6);
+    const markers = detector.findMarkers(detector.grey, candidates, 64);
+    try {
+      return fitBoard(markers, w, h);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError;
+}
+export function detectCorners(data, w, h) {
+  return detectCalibration(data, w, h).corners;
 }

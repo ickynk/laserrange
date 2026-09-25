@@ -20,21 +20,38 @@ export function solve(A, b) {
   }
   return m.map((row) => row[n]);
 }
-export function homography(from, to) {
-  if (from.length !== 4 || to.length !== 4)
-    throw Error("Four corners required");
+export function fitHomography(from, to) {
+  if (from.length < 4 || from.length !== to.length)
+    throw Error("At least four matching points required");
   const A = [],
     b = [];
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < from.length; i++) {
     const [x, y] = from[i],
       [u, v] = to[i];
+    if (![x, y, u, v].every(Number.isFinite))
+      throw Error("Invalid calibration coordinates");
     A.push(
       [x, y, 1, 0, 0, 0, -u * x, -u * y],
       [0, 0, 0, x, y, 1, -v * x, -v * y],
     );
     b.push(u, v);
   }
-  return [...solve(A, b), 1];
+  if (from.length === 4) return [...solve(A, b), 1];
+  // Coordinates are normalized to the camera/screen dimensions, keeping the
+  // least-squares system well scaled for this small planar board.
+  const normal = Array.from({ length: 8 }, () => Array(8).fill(0)),
+    rhs = Array(8).fill(0);
+  for (let k = 0; k < A.length; k++)
+    for (let i = 0; i < 8; i++) {
+      rhs[i] += A[k][i] * b[k];
+      for (let j = 0; j < 8; j++) normal[i][j] += A[k][i] * A[k][j];
+    }
+  return [...solve(normal, rhs), 1];
+}
+export function homography(from, to) {
+  if (from.length !== 4 || to.length !== 4)
+    throw Error("Four corners required");
+  return fitHomography(from, to);
 }
 export function project(h, x, y) {
   const w = h[6] * x + h[7] * y + h[8];

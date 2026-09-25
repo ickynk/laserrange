@@ -56,24 +56,26 @@
         placement)</label
       >
       <p class="hint">
-        Pinch or use +/− to zoom. Drag to pan; tap to place corners. Preview
+        Pinch or use +/− to zoom. Drag to pan; tap to place anchors. Preview
         zoom does not change camera alignment.
       </p>
       <div class="steps">
         <section>
           <span class="eyebrow">01 / SCREEN ALIGNMENT</span>
-          <h2>Locate the projected frame</h2>
+          <h2>Align the projected frame</h2>
           <p class="hint">
             Use Show calibration &amp; auto-align above. Verify the detected
-            outline. If automatic alignment fails, tap the actual outer corners
-            in this order: top-left, top-right, bottom-right, bottom-left.
+            outline. If automatic alignment fails, tap the exact centers of
+            numbered crosshairs 1 → 2 → 3 → 4. Do not tap code corners or outer
+            screen edges. Use the normal 1× rear lens and keep all five codes in
+            view.
           </p>
           <div class="row">
             <button id="autoCorners">Retry automatic alignment</button
-            ><button id="resetCorners">Reset corners</button>
+            ><button id="resetCorners">Reset anchors</button>
           </div>
-          <button id="undoCorner">Undo last corner</button>
-          <p id="cornerStatus">0 / 4 corners</p>
+          <button id="undoCorner">Undo last anchor</button>
+          <p id="cornerStatus">0 / 4 anchors</p>
         </section>
         <section>
           <span class="eyebrow">02 / AMBIENT LIGHT</span>
@@ -113,7 +115,7 @@
       <p id="cameraTelemetry" class="hint">Camera not running.</p>
       <p class="hint">
         Keep the mount and projected outer frame fixed and this page visible.
-        Reset corners if either physically moves; resizing assumes the same
+        Reset anchors if either physically moves; resizing assumes the same
         outer frame. Returning from the background, changing camera/color, or
         losing connection requires recalibration. White or clipped laser spots
         may not be detected.

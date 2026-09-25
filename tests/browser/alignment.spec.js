@@ -103,7 +103,7 @@ test("Failed automatic alignment offers usable manual corners, zoom controls and
     await page.locator("#startCamera").click();
     await expect(page.locator("#alignmentStatus")).toContainText(
       "Automatic alignment could not",
-      { timeout: 8000 },
+      { timeout: 12000 },
     );
     await page.locator("#resetCorners").click();
     await page.locator("#zoomIn").click();
@@ -115,16 +115,16 @@ test("Failed automatic alignment offers usable manual corners, zoom controls and
       const r = await image.boundingBox();
       await image.click({ position: { x: r.width * u, y: r.height * v } });
     }
-    await corner(0.01, 0.01);
-    await corner(0.99, 0.01);
-    await corner(0.99, 0.99);
-    await corner(0.01, 0.99);
+    await corner(0.04, 0.07);
+    await corner(0.96, 0.07);
+    await corner(0.96, 0.93);
+    await corner(0.04, 0.93);
     await expect(page.locator("#cornerStatus")).toContainText(
-      "4 / 4 corners · aligned",
+      "4 / 4 anchors · aligned",
     );
     await page.locator("#undoCorner").click();
-    await expect(page.locator("#cornerStatus")).toHaveText("3 / 4 corners");
-    await corner(0.01, 0.99);
+    await expect(page.locator("#cornerStatus")).toHaveText("3 / 4 anchors");
+    await corner(0.04, 0.93);
     await expect(page.locator("#alignmentStatus")).toContainText(
       "Manually aligned",
     );

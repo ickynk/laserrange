@@ -10,14 +10,16 @@
   "scripts": {
     "start": "node server.js",
     "test": "node --test tests/*.test.js",
-    "check": "node scripts/check.js"
+    "check": "node scripts/check.js",
+    "vendor:aruco": "node scripts/vendor-aruco.js"
   },
   "dependencies": {
+    "qrcode": "1.5.4",
     "three": "0.186.0",
-    "ws": "8.21.0",
-    "qrcode": "1.5.4"
+    "ws": "8.21.0"
   },
   "devDependencies": {
-    "@playwright/test": "1.58.2"
+    "@playwright/test": "1.58.2",
+    "js-aruco2": "2.0.0"
   }
 }

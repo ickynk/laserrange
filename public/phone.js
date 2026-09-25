@@ -1,13 +1,12 @@
-import { detectCorners } from "./core/corners.js";
+import {
+  detectCalibration,
+  manualCalibration,
+  outerCorners,
+} from "./core/corners.js";
+import { manualAnchors } from "./core/calibration-board.js";
 import { alignmentView } from "./core/alignment-view.js";
 import { Channel } from "./core/channel.js";
-import {
-  homography,
-  unitCorners,
-  validQuad,
-  warpMap,
-  warp,
-} from "./core/geometry.js";
+import { warpMap, warp, project } from "./core/geometry.js";
 import { LaserDetector, chooseReference } from "./core/detector.js";
 const $ = (id) => document.getElementById(id),
   notify = (m) => ($("phoneNotice").textContent = m);
@@ -27,6 +26,8 @@ const referenceCtx = referenceCanvas.getContext("2d", {
 let channel,
   stream,
   corners = [],
+  manualPoints = [],
+  calibrationTransform = null,
   mapping = null,
   referenceHistory = [],
   baselineFrames = [],
@@ -50,6 +51,7 @@ let channel,
   autoUntil = 0,
   autoLast = 0,
   autoCandidate = null,
+  autoFailure = "No codes detected yet.",
   autoStable = 0,
   patternActive = false,
   autoRequested = false,
@@ -77,6 +79,8 @@ function invalidate(reason, { keepCorners = false } = {}) {
   $("testStatus").textContent = "0 / 3 pulses detected";
   if (!keepCorners) {
     corners = [];
+    manualPoints = [];
+    calibrationTransform = null;
     mapping = null;
     drawCorners();
   }
@@ -226,11 +230,14 @@ function drawCorners() {
   x.strokeStyle = "#00ffff";
   x.fillStyle = "#00ffff";
   x.font = `bold ${Math.max(18, c.width / 35)}px sans-serif`;
-  corners.forEach(([u, v], i) => {
+  const anchors = calibrationTransform
+    ? manualAnchors.map(([u, v]) => project(calibrationTransform, u, v))
+    : manualPoints;
+  anchors.forEach(([u, v], i) => {
     x.beginPath();
-    x.arc(u * c.width, v * c.height, 8, 0, Math.PI * 2);
+    x.arc(u * c.width, v * c.height, 10, 0, Math.PI * 2);
     x.stroke();
-    x.fillText(String(i + 1), u * c.width + 12, v * c.height + 10);
+    x.fillText(String(i + 1), u * c.width + 14, v * c.height + 10);
   });
   if (corners.length > 1) {
     x.beginPath();
@@ -243,38 +250,41 @@ function drawCorners() {
     x.stroke();
   }
   $("cornerStatus").textContent =
-    `${corners.length} / 4 corners${mapping ? " · aligned" : ""}`;
+    `${mapping ? 4 : manualPoints.length} / 4 anchors${mapping ? " · aligned" : ""}`;
 }
-function applyCorners() {
-  if (!validQuad(corners)) {
-    corners = [];
-    mapping = null;
-    throw Error(
-      "Corners must form a convex screen in TL → TR → BR → BL order. Try again.",
-    );
-  }
-  const h = homography(unitCorners, corners);
-  mapping = warpMap(h, W, H, capture.width, capture.height);
+function applyCalibration(transform) {
+  corners = outerCorners(transform);
+  calibrationTransform = transform;
+  mapping = warpMap(transform, W, H, capture.width, capture.height);
   detector.reset();
   drawCorners();
-  notify("Screen aligned. Capture a baseline without firing.");
+  notify(
+    "Screen aligned. Check the numbered overlay circles match the printed crosshair centers, then capture a baseline.",
+  );
 }
 function placeCorner(point) {
   if (!stream) return notify("Enable the camera first.");
   autoUntil = 0;
   autoRequested = false;
-  if (corners.length === 4) invalidate(null);
-  corners.push(point);
-  if (corners.length === 4)
+  if (mapping || manualPoints.length === 4) invalidate(null);
+  manualPoints.push(point);
+  if (manualPoints.length === 4) {
     try {
-      applyCorners();
+      applyCalibration(manualCalibration(manualPoints).transform);
     } catch (error) {
-      notify(error.message);
+      mapping = null;
+      calibrationTransform = null;
+      corners = [];
+      drawCorners();
+      $("alignmentStatus").textContent =
+        `${error.message} Undo the last point or reset and retry.`;
+      return;
     }
+  }
   drawCorners();
   $("alignmentStatus").textContent = mapping
-    ? "Manually aligned. Verify the outline, then capture a baseline."
-    : `Tap corner ${corners.length + 1}: top-left → top-right → bottom-right → bottom-left.`;
+    ? "Manually aligned using crosshair centers. Verify all four overlay circles coincide with crosshairs before baseline."
+    : `Tap the exact CENTER of crosshair ${manualPoints.length + 1}. Do not tap the frame edges or code corners.`;
 }
 const alignment = alignmentView($("alignmentViewport"), $("alignmentImage"), {
   onPoint: placeCorner,
@@ -286,29 +296,30 @@ $("fitImage").onclick = () => alignment.fit();
 $("panImage").onchange = () => alignment.setPan($("panImage").checked);
 $("resetCorners").onclick = () => {
   autoRequested = false;
-  invalidate("Tap the four outer screen corners.");
+  invalidate("Tap the centers of numbered crosshairs 1 → 2 → 3 → 4.");
   $("alignmentStatus").textContent =
-    "Manual alignment: tap top-left, top-right, bottom-right, bottom-left. Zoom and pan as needed.";
+    "Manual alignment: tap crosshair CENTERS 1 → 2 → 3 → 4. Do not tap the outer frame or code corners. Zoom and pan as needed.";
 };
 $("undoCorner").onclick = () => {
-  const remaining = corners.slice(0, -1);
+  const remaining = manualPoints.slice(0, -1);
   autoRequested = false;
   invalidate();
-  corners = remaining;
+  manualPoints = remaining;
   drawCorners();
   $("alignmentStatus").textContent =
-    "Last corner removed. Tap its corrected position.";
+    "Last anchor removed. Tap its corrected crosshair center.";
 };
 function beginAuto() {
   if (!stream) return notify("Enable the camera first.");
   invalidate();
   autoRequested = false;
-  autoUntil = performance.now() + 5000;
+  autoUntil = performance.now() + 8000;
   autoLast = 0;
   autoStable = 0;
   autoCandidate = null;
+  autoFailure = "No codes detected yet.";
   $("alignmentStatus").textContent =
-    "Finding four cyan corner rings. Keep the camera steady…";
+    "Finding 5 black-and-white codes and checking alignment. Keep the camera steady…";
 }
 function requestPattern(active) {
   if (!connected) return notify("Connect to the host first.");
@@ -335,16 +346,17 @@ function tryAuto(time) {
   if (time > autoUntil) {
     autoUntil = 0;
     $("alignmentStatus").textContent =
-      "Automatic alignment could not find a stable pattern. Use Reset corners, zoom and pan, then tap the four outer corners; or retry.";
+      `Automatic alignment could not find a stable pattern. ${autoFailure} Retry, or use Reset anchors and tap crosshair centers 1–4.`;
     return;
   }
   captureCtx.drawImage($("camera"), 0, 0, capture.width, capture.height);
   try {
-    const found = detectCorners(
+    const result = detectCalibration(
       captureCtx.getImageData(0, 0, capture.width, capture.height).data,
       capture.width,
       capture.height,
     );
+    const found = result.corners;
     const stable =
       autoCandidate &&
       found.every(
@@ -355,13 +367,15 @@ function tryAuto(time) {
     autoStable = stable ? autoStable + 1 : 1;
     autoCandidate = found;
     if (autoStable >= 3) {
-      corners = found;
-      applyCorners();
+      applyCalibration(result.transform);
       autoUntil = 0;
       $("alignmentStatus").textContent =
-        "Automatically aligned. Verify the outline matches the outer screen, then capture a baseline. Use Reset corners to correct manually.";
+        `Automatically aligned: 5/5 codes; fit ${result.rms.toFixed(1)} px, independent center check ${result.checkError.toFixed(1)} px (camera pixels). Verify numbered overlay circles match the crosshairs, then capture baseline.`;
     }
-  } catch {
+  } catch (error) {
+    autoFailure = error.message;
+    $("alignmentStatus").textContent =
+      `Finding calibration codes: ${autoFailure}`;
     autoStable = 0;
     autoCandidate = null;
   }

@@ -5,10 +5,10 @@ Version 0.1.0, hardware-validation alpha.
 | Check | Result |
 |---|---|
 | JavaScript syntax (`npm run check`) | Passed |
-| Node unit/integration suite (`npm test`) | 13 passed, 0 failed |
+| Node unit/integration suite (`npm test`) | 17 passed, 0 failed |
 | Playwright browser suite | 15 passed, 0 failed |
 | Rendered desktop interface | Screenshot inspected |
-| Physical iPhone / Android camera | User reported successful calibration pulses; session-shot retest pending |
+| Physical iPhone / Android camera | User reports session shots registering; new alignment retest pending |
 | TitanX / DryFireMag-associated laser | User hardware feedback received; device-specific accuracy unverified |
 | Projector optics and end-to-end latency | Not measured |
 | YouTube live playback / uploaded media codec compatibility | Implementation present; not verified against real media in this environment |
@@ -31,4 +31,6 @@ Two-window regression coverage includes 3D shot scoring and projector-owned revi
 
 Calibration regression coverage verifies automatic live-input selection, shot delivery after automatic sensitivity refresh, retained corners and pulse qualification through resizing and video/3D changes, and shots in repeated sessions. A unit regression checks both red and green pulses after adaptation with a moving background and verifies that sensitivity stays within the pulse-validated threshold.
 
-Phone alignment regressions cover requesting/closing the calibration display in both display modes, automatic ring detection followed by live shots, blank-camera timeout and manual fallback on a 390-pixel phone viewport, undo, and zoom/drag/pinch coordinate behavior. Unit tests cover perspective marker recovery, solid-color distractors, and rejected missing/clipped patterns. Real projector marker recognition under glare and extreme viewing angles still needs hardware validation.
+Phone alignment regressions cover requesting/closing the calibration display in both display modes, automatic coded-board detection followed by live shots, blank-camera timeout and manual fallback on a 390-pixel phone viewport, undo, and zoom/drag/pinch coordinate behavior. Unit tests cover perspective and rotated coded-board recovery, soft focus, raised black levels, uneven illumination, color casts, missing/duplicate codes, rejected inconsistent center checks, and clipped frames. Real projector marker recognition under glare and extreme viewing angles still needs hardware validation.
+
+Coded-board regression tests verify a grid of 25 independent ground-truth screen positions after detection and exercise camera image → rectification → laser detector at center and all four edges. A manual regression reproduces outward expansion when inset points are mistaken for edges, then verifies the known-anchor mapping removes it. Synthetic error bounds are not a hardware accuracy claim. Session shot detection has been reported working on user hardware; the new coded board and placement correction still require a physical retest.
