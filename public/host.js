@@ -92,6 +92,8 @@ function properties() {
   ])
     $(id).value = t[key];
   $("targetProperties").hidden = !t.kind;
+  $("barrierProperties").hidden = !!t.kind;
+  if (!t.kind) $("objLength").value = t.depth;
   if (t.kind)
     for (const key of ["kind", "start", "end", "speed"]) $(key).value = t[key];
 }
@@ -139,6 +141,7 @@ for (const [id, key] of [
   ["objZ", "z"],
   ["objWidth", "width"],
   ["objHeight", "height"],
+  ["objLength", "depth"],
   ["kind", "kind"],
   ["start", "start"],
   ["end", "end"],
@@ -888,6 +891,11 @@ function animate(t) {
   else if (mode === "upload" && $("movie").readyState >= 2)
     drawable = $("movie");
   if (!drawable) return;
+  if (
+    drawable instanceof HTMLCanvasElement &&
+    (!drawable.width || !drawable.height)
+  )
+    return;
   refctx.fillStyle = "black";
   refctx.fillRect(0, 0, 480, 270);
   if (mode === "upload" && !calibrating) {

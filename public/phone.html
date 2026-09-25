@@ -90,16 +90,33 @@
             >Sensitivity threshold<input
               id="threshold"
               type="range"
-              min="25"
+              min="5"
               max="180"
               value="55"
             /><span id="thresholdValue">55</span></label
           >
+          <label
+            >Maximum video pulse · ms<input
+              id="videoPulseDuration"
+              type="number"
+              min="80"
+              max="1000"
+              step="10"
+              value="350"
+          /></label>
+          <p id="videoFilterStatus" class="hint">
+            Video filtering confirms short pulses before registering a shot.
+          </p>
           <p class="hint">
-            Scene changes automatically refresh sensitivity without resetting
-            corners or repeating the pulse check. Hold fire while adjusting. Do
-            not fire during baseline capture. Higher thresholds reject more
-            noise but may miss faint pulses.
+            Lower thresholds detect fainter lasers. Your selected threshold
+            stays fixed through scene changes and reconnects. Scene changes
+            automatically refresh sensitivity without resetting corners or
+            repeating the pulse check. Hold fire while adjusting. Do not fire
+            during baseline capture. Higher thresholds reject more noise but may
+            miss faint pulses. Video pulses must end within the maximum duration
+            above; increase it only if your device emits a longer pulse. Short
+            colored flashes in YouTube can still resemble a laser. Uploaded
+            files allow additional source-video subtraction.
           </p>
         </section>
         <section>

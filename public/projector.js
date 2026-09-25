@@ -377,6 +377,11 @@ function animate(t) {
         ? $("media")
         : null;
   if (!drawable || !ready) return;
+  if (
+    drawable instanceof HTMLCanvasElement &&
+    (!drawable.width || !drawable.height)
+  )
+    return;
   ctx.fillStyle = "black";
   ctx.fillRect(0, 0, 480, 270);
   if (mode === "upload" && !calibrating) {

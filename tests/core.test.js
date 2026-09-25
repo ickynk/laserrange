@@ -169,7 +169,7 @@ test("Stale references are not used and baseline adapts above measured noise", (
     900,
   );
   const d = new LaserDetector(w, h);
-  assert.ok(d.calibrate(Array.from({ length: 10 }, () => blank)) >= 35);
+  assert.ok(d.calibrate(Array.from({ length: 10 }, () => blank)) >= 15);
   assert.throws(() => d.calibrate([]));
 });
 test("Pending detections excluded from accuracy; no-shoot hits are penalized; splits ordered", () => {

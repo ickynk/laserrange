@@ -106,7 +106,7 @@ YouTube demo shots require manual scoring. Without a paired phone they do not ha
 
 Arming detection selects live input automatically. If you deliberately turn Demo back on, that session accepts mouse clicks; an incoming camera pulse displays an explanation instead of being silently ignored. End the demo and uncheck Demo to use the phone.
 
-Camera telemetry shows cumulative **live detections** independently of session shot totals. If that counter increases but session shots do not, check that a live session is running. If it does not increase, check the phone preview, laser color, exposure, and sensitivity. Calibration on a bright pattern does not guarantee optical detection on every background; clipped white spots or very short pulses may still be missed. Automatic refresh never raises the threshold above the value verified by the three-pulse check. Test hardware accuracy on the actual range image.
+Camera telemetry shows cumulative **live detections** independently of session shot totals. If that counter increases but session shots do not, check that a live session is running. If it does not increase, check the phone preview, laser color, exposure, and sensitivity. Calibration on a bright pattern does not guarantee optical detection on every background; clipped white spots or very short pulses may still be missed. Automatic refresh retains your exact selected threshold; it does not raise it based on video motion. Test hardware accuracy on the actual range image.
 
 ### Optional five-shot screen zero
 
@@ -125,3 +125,15 @@ Switching between overhead and perspective, operator tabs, or video/3D content k
 Temporary network loss reconnects automatically with the same pairing code. The host keeps the pairing session for two minutes during a host outage. Wait for **Camera calibrated**, then start a new session; shots during an outage are not recovered or replayed. The app displays reconnecting status instead of asking for calibration. If the server restarts, pairing expires, the camera stream stops, or the physical frame moves, follow the displayed recovery instructions.
 
 There is no fixed 35-second camera disconnect timer. The default scenario duration is 30 seconds, including video sessions. Increase **Duration** in the Range controls for longer playback sessions; reaching the duration ends scoring, not the camera connection.
+
+### Video false positives and faint pulses
+
+The phone now confirms that a video candidate is a short flash before registering it. Persistent red/green areas, moving highlights and large scene changes are filtered. Shot timing and review frames use the original onset even though the marker appears after the pulse ends. **Maximum video pulse · ms** defaults to 350; increase it if your actual device pulse lasts longer. This guard applies to video, not the static calibration/zeroing screens.
+
+Prefer an uploaded file for the strongest filtering: the camera can subtract the known source image, including projector/camera color differences. Uploaded-video detection waits if source frames become stale. YouTube does not expose source pixels; brief laser-like colors can still produce false positives, and cuts or fast motion can suppress genuine pulses. Confirm performance on your chosen video.
+
+The sensitivity slider now keeps your chosen value through automatic refreshes. Lower means more sensitive; the range extends down to 5 for faint pulses, and quiet baseline capture can select 15 instead of the previous 35 floor. Start with a fresh baseline after updating, then run the three-pulse check. Adjust downward only as needed while checking for false positives. Optical exposure and clipped white spots still affect detection.
+
+### Barricade length
+
+Select a barricade in the overhead editor and set **Length · front–back (m)** beside its width/height settings. Width spans left–right; length extends along the range floor toward/away from the viewer. The 0.1–10 m value is stored in the existing `depth` field, so saved/shared scenarios and the projector use the same geometry.

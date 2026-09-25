@@ -160,3 +160,41 @@ test("Impact marks follow moving target surfaces, do not intercept shots, and cl
   await page.locator("#startRun").click();
   await expect(page.locator(".shotMarker")).toHaveCount(0);
 });
+
+test("Barricade length edits survive save/import and set rendered front-back geometry", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.locator("#viewToggle").click();
+  await page.locator("#addBarrier").click();
+  await expect(page.locator("#objLength")).toHaveValue("0.6");
+  await page.locator("#objLength").fill("6.5");
+  await page.locator("#objLength").blur();
+  await page.locator("#save").click();
+  const scenario = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem("laser-range.scenario.v1")),
+  );
+  expect(scenario.barriers.at(-1).depth).toBe(6.5);
+  await page
+    .locator("#importScenario")
+    .setInputFiles({
+      name: "length.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(JSON.stringify(scenario)),
+    });
+  await page.locator("#objects").selectOption(scenario.barriers.at(-1).id);
+  await expect(page.locator("#objLength")).toHaveValue("6.5");
+  const depth = await page.evaluate(async (s) => {
+    const { RangeScene } = await import("/range.js");
+    const range = new RangeScene(document.createElement("canvas"));
+    range.setScenario(s);
+    return range.meshes.find((m) => m.userData.id === s.barriers.at(-1).id)
+      .geometry.parameters.depth;
+  }, scenario);
+  expect(depth).toBe(6.5);
+  await page.locator("#objLength").fill("11");
+  await page.locator("#objLength").dispatchEvent("change");
+  await expect(page.locator("#objLength")).toHaveValue("6.5");
+  await page.locator("#objects").selectOption(scenario.targets[0].id);
+  await expect(page.locator("#barrierProperties")).toBeHidden();
+});

@@ -100,11 +100,18 @@ for (const separate of [false, true])
         "Baseline captured",
         { timeout: 6000 },
       );
+      // A slider change used to be overwritten by the host-triggered refresh.
+      await phone.locator("#threshold").evaluate((el) => {
+        el.value = "18";
+        el.dispatchEvent(new Event("input"));
+      });
+      await phone.waitForTimeout(1600);
+      await expect(phone.locator("#threshold")).toHaveValue("18");
       await phone.locator("#test").click();
-      async function pulse() {
+      async function pulse(duration = 500) {
         await phone.evaluate(() => (window.testPulse = true));
         // Software-rendered CI cameras need several delivered frames per pulse.
-        await phone.waitForTimeout(500);
+        await phone.waitForTimeout(duration);
         await phone.evaluate(() => (window.testPulse = false));
         await phone.waitForTimeout(500);
       }
@@ -181,7 +188,10 @@ for (const separate of [false, true])
       await expect(page.locator("#stopRun")).toBeEnabled();
       await expect(page.locator("#connection")).toHaveText("Camera calibrated");
       await expect(phone.locator("#cornerStatus")).toHaveText(aligned);
-      await pulse();
+      await expect(phone.locator("#threshold")).toHaveValue("18");
+      // Do not inject the test pulse on the fixture's four-second loop cut.
+      await phone.waitForTimeout(600);
+      await pulse(150);
       await expect(page.locator("#statShots")).toHaveText("1");
       await page.locator("#stopRun").click();
       await page.locator("[data-tab=video]").click();
@@ -296,6 +306,10 @@ for (const separate of [false, true])
         await phone.locator("#phoneNotice").textContent(),
       );
       console.log("Host status:", await page.locator("#notice").textContent());
+      console.log(
+        "Video filter:",
+        await phone.locator("#videoFilterStatus").textContent(),
+      );
       console.log(
         "Pulse status:",
         await phone.locator("#testStatus").textContent(),

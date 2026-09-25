@@ -1,3 +1,4 @@
+import { VideoPulseFilter } from "./core/video-filter.js";
 import {
   detectCalibration,
   manualCalibration,
@@ -8,6 +9,7 @@ import { alignmentView } from "./core/alignment-view.js";
 import { Channel } from "./core/channel.js";
 import { warpMap, warp, project } from "./core/geometry.js";
 import { LaserDetector, chooseReference } from "./core/detector.js";
+const videoFilter = new VideoPulseFilter(480, 270);
 const $ = (id) => document.getElementById(id),
   notify = (m) => ($("phoneNotice").textContent = m);
 const W = 480,
@@ -47,6 +49,7 @@ let channel,
   adaptingUntil = 0,
   adaptationFrames = [],
   validatedThreshold = 55,
+  manualThreshold = null,
   detectedShots = 0,
   autoUntil = 0,
   autoLast = 0,
@@ -64,6 +67,7 @@ function ready(value) {
   $("arm").textContent = value ? "Detection armed" : "Arm detection";
 }
 function invalidate(reason, { keepCorners = false } = {}) {
+  videoFilter.reset();
   autoUntil = 0;
   resumeDetection = false;
   ready(false);
@@ -90,6 +94,7 @@ function invalidate(reason, { keepCorners = false } = {}) {
 }
 // Background changes do not change the fixed camera-to-screen mapping.
 function refreshSensitivity() {
+  videoFilter.reset();
   referenceHistory = [];
   if (!mapping || !baselineDone || testing) return;
   adaptingUntil = performance.now() + 900;
@@ -418,7 +423,10 @@ $("laserColor").onchange = () => {
   });
 };
 $("threshold").oninput = () => {
-  detector.threshold = Number($("threshold").value);
+  manualThreshold = Number($("threshold").value);
+  validatedThreshold = manualThreshold;
+  detector.threshold = manualThreshold;
+  resumeDetection = false;
   $("thresholdValue").textContent = detector.threshold;
   ready(false);
   testCount = 0;
@@ -505,8 +513,10 @@ function processFrame() {
             $("laserColor").value,
           );
           baselineDone = true;
-          $("threshold").value = threshold;
-          $("thresholdValue").textContent = threshold;
+          detector.threshold = manualThreshold ?? threshold;
+          validatedThreshold = detector.threshold;
+          $("threshold").value = detector.threshold;
+          $("thresholdValue").textContent = detector.threshold;
           const ref = chooseReference(out.data, referenceHistory, clock);
           if (ref) detector.photometric(out.data, ref.data);
           notify("Baseline captured. Run the three-pulse laser check.");
@@ -543,11 +553,31 @@ function processFrame() {
           ? null
           : chooseReference(out.data, referenceHistory, clock);
       lastReferenceAge = ref ? clock - ref.time : 9999;
-      const hits = detector.detect(out.data, ref?.data, clock, {
-        temporalOnly: (mode === "youtube" && !patternActive) || !ref,
+      const videoMode = mode !== "3d" && !patternActive && !testing;
+      if (ref) detector.photometric(out.data, ref.data);
+      let hits = detector.detect(out.data, ref?.data, clock, {
+        temporalOnly: !ref,
       });
+      if (videoMode) {
+        // Uploaded media has a readable source: do not turn missing frames into shots.
+        if (mode === "upload" && !ref) {
+          videoFilter.reset();
+          hits = [];
+        } else {
+          hits = videoFilter.process(out.data, hits, clock, {
+            color: detector.color,
+            threshold: detector.threshold,
+            maxDuration: Number($("videoPulseDuration").value),
+            image: () => $("rectified").toDataURL("image/jpeg", 0.75),
+          });
+        }
+        $("videoFilterStatus").textContent =
+          mode === "upload" && !ref
+            ? "Video detection waiting for fresh source frames."
+            : `${ref ? "Source subtraction +" : "YouTube: camera-only"} pulse filter · ${videoFilter.rejected} candidates/cuts rejected`;
+      } else videoFilter.reset();
       for (const hit of hits) {
-        const image = $("rectified").toDataURL("image/jpeg", 0.75);
+        const image = hit.image || $("rectified").toDataURL("image/jpeg", 0.75);
         rectCtx.strokeStyle = "white";
         rectCtx.lineWidth = 2;
         rectCtx.strokeRect(hit.x * W - 7, hit.y * H - 7, 14, 14);
@@ -563,7 +593,12 @@ function processFrame() {
           }
         } else if (armed) {
           detectedShots++;
-          channel?.send({ type: "shot", ...hit, time: clock, image });
+          channel?.send({
+            type: "shot",
+            ...hit,
+            time: hit.time ?? clock,
+            image,
+          });
         }
       }
     }
@@ -587,6 +622,7 @@ function processFrame() {
 // Geometry and pulse qualification survive a transport or browser visibility pause.
 let resumeDetection = false;
 function pauseDetection(message) {
+  videoFilter.reset();
   resumeDetection = resumeDetection || armed;
   ready(false);
   referenceHistory = [];

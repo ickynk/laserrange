@@ -9,7 +9,7 @@ export class LaserDetector {
     this.width = width;
     this.height = height;
     this.threshold = 55;
-    this.brightness = 110;
+    this.brightness = 40;
     this.color = "red";
     this.reset();
   }
@@ -34,8 +34,8 @@ export class LaserDetector {
         );
     values.sort((a, b) => a - b);
     this.threshold = Math.max(
-      35,
-      Math.min(160, (values[Math.floor(values.length * 0.999)] || 0) + 25),
+      15,
+      Math.min(160, (values[Math.floor(values.length * 0.999)] || 0) + 12),
     );
     this.previous = null;
     return this.threshold;
@@ -43,20 +43,53 @@ export class LaserDetector {
   // Keep automatically measured sensitivity within the threshold proven by
   // the user's pulse check. Motion must not make a validated laser invisible.
   adapt(frames, validatedThreshold) {
-    this.calibrate(frames, this.color);
-    this.threshold = Math.min(this.threshold, validatedThreshold);
+    if (frames.length < 10) throw Error("Not enough adaptation frames.");
+    // Scene motion is not sensor noise. Keep the user's qualified threshold.
+    this.threshold = validatedThreshold;
     this.previous = new Uint8ClampedArray(frames.at(-1));
     return this.threshold;
   }
-  // Fit the projector/camera chroma response using a known white reference.
+  // Robust chroma fit compensates projector/camera color gain and ambient tint.
+  // Sparse laser pixels and clipped highlights must not drive the fit.
   photometric(camera, reference) {
-    let sum = 0,
-      n = 0;
-    for (let i = 0; i < camera.length; i += 64) {
-      sum += chroma(camera, i, this.color) - chroma(reference, i, this.color);
-      n++;
-    }
-    this.offset = n ? sum / n : 0;
+    const samples = [];
+    for (let i = 0; i < camera.length; i += 256)
+      samples.push([
+        chroma(reference, i, this.color),
+        chroma(camera, i, this.color),
+      ]);
+    const fit = (points) => {
+      const n = points.length;
+      if (!n) return;
+      const mx = points.reduce((sum, p) => sum + p[0], 0) / n;
+      const my = points.reduce((sum, p) => sum + p[1], 0) / n;
+      let variance = 0,
+        covariance = 0;
+      for (const [x, y] of points) {
+        variance += (x - mx) ** 2;
+        covariance += (x - mx) * (y - my);
+      }
+      const gain =
+        variance / n > 25
+          ? Math.max(0.25, Math.min(4, covariance / variance))
+          : 1;
+      return { gain, offset: my - gain * mx };
+    };
+    let response = fit(samples);
+    if (!response) return;
+    const residuals = samples
+      .map(([x, y]) => Math.abs(y - response.gain * x - response.offset))
+      .sort((a, b) => a - b);
+    const limit = Math.max(5, residuals[Math.floor(residuals.length * 0.8)]);
+    response =
+      fit(
+        samples.filter(
+          ([x, y]) =>
+            Math.abs(y - response.gain * x - response.offset) <= limit,
+        ),
+      ) || response;
+    this.gain = response.gain;
+    this.offset = response.offset;
   }
   detect(frame, reference, time, { temporalOnly = false } = {}) {
     const { width: w, height: h } = this;
