@@ -22,7 +22,9 @@ No build step, database, paid service, or native mobile app is needed. Dependenc
 - Dedicated operator and projector windows, with source frames and scoring owned by the projector. Operator controls, scenario edits, video playback/seek, calibration commands, and shot review stay on the main screen.
 - Three.js 3D range with stationary and moving targets, visible armed/unarmed symbols, barriers, and viewpoint translation along an editable path.
 - Overhead drag-and-drop placement, numeric properties, target appearance windows, speed, ordered paths, and randomized armed/unarmed roles per run.
-- Scenario save/load in browser storage and versioned JSON import/export for sharing.
+- Full-volume mannequins, rotating targets, improved vehicles/walls/doorways/drums/ported barricades, and custom target-image upload with drag/zoom cropping onto cardboard.
+- Configurable scoring zones, target repeats/easing, camera speed/height/FOV and per-segment focus points with smooth view transitions.
+- Scenario quick-save in browser storage, persistent host range/video-link folders, and versioned JSON import/export including custom target images.
 - Host pairing link/QR code, six-digit phone pairing, role isolation, origin checks, and limited connection attempts.
 - Browser rear camera, automatic black-and-white coded-marker alignment with an independent center check and manual numbered-crosshair fallback, perspective rectification, ambient baseline, three test pulses, red/green selection, and adjustable threshold.
 - Optional five-shot screen zero per shooter, with reviewed correction, group checks and reset on alignment changes.
@@ -30,7 +32,7 @@ No build step, database, paid service, or native mobile app is needed. Dependenc
 - Raycast hit/miss/no-shoot scoring that accounts for barriers and historical scene time; screen position and approximate first-shot/split timing; audible start tone.
 - Uploaded-video playback with source-frame snapshots and manual scoring. YouTube IFrame playback with **phone camera snapshots**, manual scoring, and reduced-confidence detection.
 - Small persistent impact dots on targets and barriers, attached to their 3D surfaces so they follow target movement. Misses and uncertain/video events retain small screen-position dots. New sessions clear the marks.
-- Mouse-driven demo mode; turn-based shooter names and the last five completed sessions retained in memory.
+- Mouse-driven demo mode; countdown/configurable beep; turn-based shooter comparison for up to 50 runs, with images for the newest five. Review frames support arrow keys, previous/next buttons and image clicks.
 - Automated geometry, image-processing, protocol, and browser tests; GitHub Actions verification.
 
 ## Important accuracy boundaries
@@ -54,8 +56,8 @@ For safe dry-fire practice, use an appropriate unloaded/dedicated training setup
 2. For a moving target, select it, choose **Draw target path**, and click ordered floor points. Press Escape when finished. A path replaces the target's static location; motion starts at its first point and travels back and forth at the chosen speed.
 3. Set the target to Shoot, No-shoot, or Randomize. “Randomize” independently chooses a role with 50% probability at session start.
 4. Set appearance/disappearance times within the scenario duration. Empty intervals never appear during a run.
-5. Enable **Move viewpoint**, draw a camera path, and preview with a demo run. The camera moves at 0.6 m/s and stops at the end. Its height and forward look direction are currently fixed.
-6. Save locally, or use **Share JSON** to send the scenario to another user. The JSON includes geometry and timing, not uploaded media or session images.
+5. Enable **Move viewpoint**, draw a camera path, and preview with a demo run. Adjust camera speed, height and field of view. Select each segment and click its focus point in overhead view; Focus transition eases the view direction at joins. The camera stops at the path end.
+6. Save to the host range folder, quick-save in this browser, or use **Share JSON** to send the scenario to another user. JSON includes geometry, timing, POV settings and cropped target images; it does not include uploaded videos or session screenshots.
 
 ## Test
 

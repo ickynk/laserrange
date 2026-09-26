@@ -1,3 +1,4 @@
+import { libraryRequest } from "./server/library.js";
 import http from "node:http";
 import https from "node:https";
 import { readFileSync, createReadStream } from "node:fs";
@@ -37,6 +38,7 @@ export function createRangeServer({
   adminToken = randomBytes(24).toString("hex"),
   tls,
   publicOrigin,
+  dataDir = resolve(root, "data"),
 } = {}) {
   const sessions = new Map();
   const failed = new Map();
@@ -50,6 +52,16 @@ export function createRangeServer({
       "default-src 'self'; script-src 'self' https://www.youtube.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' ws: wss:; frame-src https://www.youtube.com https://www.youtube-nocookie.com; frame-ancestors 'none'",
     );
     const url = new URL(req.url, "http://localhost");
+    if (url.pathname.startsWith("/api/library/")) {
+      if (
+        !equal(req.headers.authorization?.replace(/^Bearer /, ""), adminToken)
+      )
+        return json(res, 401, {
+          error:
+            "Unlock the host with the link printed in the terminal to access saved items.",
+        });
+      return libraryRequest(req, res, url, dataDir, json);
+    }
     if (url.pathname === "/api/health") return json(res, 200, { ok: true });
     if (url.pathname === "/api/session" && req.method === "POST") {
       if (
@@ -342,6 +354,7 @@ if (
   const { server, adminToken } = createRangeServer({
     tls,
     publicOrigin: process.env.PUBLIC_ORIGIN,
+    dataDir: process.env.RANGE_DATA_DIR || resolve(root, "data"),
   });
   server.listen(port, process.env.BIND || "0.0.0.0", () => {
     console.log(

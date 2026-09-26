@@ -6,3 +6,7 @@ playwright-report/
 *.pem
 *.key
 *.zip
+
+data/ranges/*.json
+data/videos/*.json
+data/**/*.tmp

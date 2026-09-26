@@ -5,8 +5,8 @@ Version 0.1.0, hardware-validation alpha.
 | Check | Result |
 |---|---|
 | JavaScript syntax (`npm run check`) | Passed |
-| Node unit/integration suite (`npm test`) | 32 passed, 0 failed |
-| Playwright browser suite | 24 distinct tests passed, 0 failed (22-test full run plus 6-test options run, four overlapping) |
+| Node unit/integration suite (`npm test`) | 35 passed, 0 failed |
+| Playwright browser suite | 28 distinct tests passed, 0 failed (27-test full run plus 4-test editor run, three overlapping) |
 | Rendered desktop interface | Screenshot inspected |
 | Physical iPhone / Android camera | User reports working auto-alignment and horizontal placement; successful screen-zero correction; connection-recovery hardware retest pending |
 | TitanX / DryFireMag-associated laser | User hardware feedback received; device-specific accuracy unverified |
@@ -44,4 +44,7 @@ Video regressions cover short red/green pulse confirmation with original timesta
 
 Scenario/session extension regressions cover backward-compatible imports, malformed options, repeat boundaries, easing, zone priority and ellipse boundaries, settings/input-separated comparisons and within-run timing, muted/cancelled audio scheduling, asset/schedule persistence, window aperture versus frame occlusion, final camera heading, and countdown cancellation/early-shot exclusion/zone points in both display modes. A focused six-test rerun includes two additional uploaded-video checks proving an already-playing preview pauses for countdown and resumes at go. Original procedural assets were inspected in a rendered gallery. Physical audio/display synchronization and real-device video recall remain unmeasured.
 
-Balanced-video regression confirms an onset core can fade while broad neighboring video changes continue, while a translated compact highlight is rejected. The user's latest hardware feedback reports near-zero false positives but roughly one-in-ten true shots with the previous filter. This update is a candidate fix, not a measured hardware recall improvement; test the same clip with the new diagnostics.
+Balanced-video regression confirms an onset core can fade while broad neighboring video changes continue, while a translated compact highlight is rejected. Earlier hardware feedback reported near-zero false positives but roughly one-in-ten true shots with the conservative filter. The latest feedback reports better video operation and fewer false positives with Balanced filtering, without a measured recall rate. This update is a candidate fix, not a measured hardware recall improvement; test the same clip with the new diagnostics.
+
+
+Editor revision tests verify camera-focus continuity and deterministic historical poses, invalid POV/image/rotation inputs, authenticated folder access, range/image round-trips and persistence after server restart, invalid link rejection, and deletion. Browser coverage exercises crop application, target rotation, overhead focus selection, host-folder reloads, saved video-link creation, keyboard/button review navigation including disabled-button boundaries, full-volume mannequin geometry and limb gaps, rotated target local hit coordinates/impact attachment, and custom-image rendering plus scoring in the separate projector. Updated props were inspected in a rendered gallery. Full-volume mannequins and props remain procedural assets; their appearance is not a photorealism claim.

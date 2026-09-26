@@ -89,6 +89,10 @@
                   <option value="fence">Metal fence</option>
                   <option value="window">Window wall · open aperture</option>
                   <option value="highway">Highway barrier</option>
+                  <option value="wall">Masonry wall</option>
+                  <option value="door">Open doorway</option>
+                  <option value="drum">Oil drum</option>
+                  <option value="ports">3-gun port barricade</option>
                 </select></label
               ><label
                 >Rotation · degrees<input
@@ -108,11 +112,30 @@
             </div>
             <div id="targetProperties">
               <label
+                >Target rotation · degrees<input
+                  id="targetRotation"
+                  type="number"
+                  min="-180"
+                  max="180"
+                  step="5"
+              /></label>
+              <label
+                >Custom target image<input
+                  id="targetImage"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+              /></label>
+              <button id="removeTargetImage">Remove custom image</button>
+              <p class="hint">
+                Upload, zoom and drag to crop onto a cardboard backer. Image
+                travels with your saved range.
+              </p>
+              <label
                 >Target asset<select id="targetAsset">
                   <option value="silhouette">Illustrated silhouette</option>
                   <option value="cardboard">Cardboard silhouette</option>
                   <option value="bullseye">Paper bullseye</option>
-                  <option value="mannequin">Sculpted mannequin</option>
+                  <option value="mannequin">Full 3D mannequin</option>
                 </select></label
               >
               <label
@@ -239,7 +262,44 @@
             ><input id="cameraMotion" type="checkbox" /> Move viewpoint along
             camera path</label
           >
-          <div class="row">
+          <div>
+            <label
+              >Camera height · m<input
+                id="cameraHeight"
+                type="number"
+                min=".3"
+                max="3"
+                step=".05"
+            /></label>
+            <label
+              >Field of view · degrees<input
+                id="cameraFov"
+                type="number"
+                min="25"
+                max="100"
+                step="1"
+            /></label>
+            <label
+              >Focus transition · seconds<input
+                id="cameraFocusBlend"
+                type="number"
+                min="0"
+                max="5"
+                step=".1"
+            /></label>
+            <label>Camera segment<select id="cameraSegment"></select></label>
+            <button id="pickFocus">Click focus point</button
+            ><button id="clearFocus">Clear segment focus</button>
+            <label
+              >Focus height · m<input
+                id="focusHeight"
+                type="number"
+                min="0"
+                max="10"
+                step=".1"
+                value="1.4"
+            /></label>
+            <p id="focusSummary" class="hint"></p>
             <button id="cameraPath">Draw camera path</button
             ><button id="clearCameraPath">Clear path</button>
           </div>
@@ -311,6 +371,18 @@
             floor.
           </p>
           <div class="row">
+            <details>
+              <summary>Saved ranges · host folder</summary>
+              <label
+                >Save name<input id="rangeLibraryName" maxlength="100"
+              /></label>
+              <button id="saveRangeLibrary">Save range copy</button
+              ><button id="refreshRangeLibrary">Refresh list</button>
+              <select id="rangeLibrary" aria-label="Saved ranges"></select
+              ><button id="loadRangeLibrary">Load selected range</button
+              ><button id="deleteRangeLibrary">Delete selected range</button>
+              <p class="hint">Stored in data/ranges on the host computer.</p>
+            </details>
             <button id="save">Save locally</button
             ><button id="load">Load saved</button>
           </div>
@@ -400,8 +472,20 @@
             >Upload a local video<input
               id="videoFile"
               type="file"
-              accept="video/*" /></label
-          ><label
+              accept="video/*"
+          /></label>
+          <details>
+            <summary>Saved video links</summary>
+            <label
+              >Video name<input id="videoLibraryName" maxlength="100" /></label
+            ><button id="saveVideoLibrary">Save current YouTube link</button
+            ><button id="refreshVideoLibrary">Refresh list</button
+            ><select id="videoLibrary" aria-label="Saved videos"></select
+            ><button id="loadVideoLibrary">Load selected video</button
+            ><button id="deleteVideoLibrary">Delete selected video</button>
+            <p class="hint">Stored in data/videos on the host computer.</p>
+          </details>
+          <label
             >YouTube URL<input
               id="youtubeUrl"
               placeholder="https://www.youtube.com/watch?v=…" /></label
@@ -527,7 +611,25 @@
         </table>
       </div>
     </section>
+    <dialog id="cropDialog">
+      <h2>Crop target image</h2>
+      <p>Drag to position; zoom to crop. Only the visible area is saved.</p>
+      <canvas id="cropCanvas"></canvas
+      ><label
+        >Zoom<input
+          id="cropZoom"
+          type="range"
+          min="1"
+          max="5"
+          step=".01"
+          value="1" /></label
+      ><button id="applyCrop">Apply to cardboard</button
+      ><button id="cancelCrop">Cancel</button>
+    </dialog>
     <dialog id="snapshotDialog">
+      <button id="previousShot">← Previous shot</button
+      ><button id="nextShot">Next shot →</button
+      ><span id="reviewPosition"></span>
       <button id="closeSnapshot">Close</button>
       <h2 id="snapshotTitle">Shot review</h2>
       <div class="snapshot">
@@ -536,8 +638,9 @@
         >
       </div>
       <p class="hint">
-        Camera capture or nearest retained source frame. A marker shows detected
-        placement; timing and geometry depend on calibration.
+        Use ← / → keys, buttons, or click the left/right half of the image to
+        navigate. Camera capture or nearest retained source frame. A marker
+        shows detected placement; timing and geometry depend on calibration.
       </p>
     </dialog>
     <footer>

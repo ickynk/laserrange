@@ -147,7 +147,7 @@ Phone status reports raw candidates, confirmed pulses, and rejection reasons (mo
 
 ### Assets, scoring and movement
 
-Select a barrier to choose a block, car, pillar, fence, window wall or highway barrier. Width, height, front–back length and rotation remain editable. Models are original procedural geometry; window/fence openings allow shots through and solid parts block them. Targets offer illustrated silhouette, cardboard, bullseye and mannequin styles. These are lightweight local assets, not photorealistic scans.
+Select a barrier to choose a block, car, pillar, fence, window wall or highway barrier. Width, height, front–back length and rotation remain editable. Models are original procedural geometry; window/fence openings allow shots through and solid parts block them. Targets offer illustrated silhouette, cardboard and bullseye backers plus a full-volume mannequin. These are lightweight local assets, not photorealistic scans.
 
 Under a target's scoring-zone controls, add up to twelve named rectangle/ellipse zones. Centers and dimensions use normalized target coordinates (0–1, with y increasing downward). Zones must fit inside the target. First matching zone wins; **Move first** changes priority. A target hit outside configured zones scores zero points but still counts as a hit. Targets without zones retain one point per hit; no-shoot hits score zero and remain separately reported.
 
@@ -158,3 +158,30 @@ Under a target's scoring-zone controls, add up to twelve named rectangle/ellipse
 Expand **Session start** to configure a 0–15 second countdown and the beep's enable switch, frequency, duration and volume. Preview the beep on the operator device. The operator emits the start beep once; the projector shows the same countdown. Browser audio permission and device output volume apply. Shots during countdown are ignored, and countdown time does not consume scenario duration. Cancelling during countdown does not create a scored run.
 
 Run sessions under different shooter names to fill the comparison table. It shows totals, hit accuracy, points/best run, no-shoot hits, pending reviews, mean first-shot time, mean within-run split and zone counts. Different scenario/settings, media sources, and demo/live inputs form separate comparison groups. Manual video reviews update the totals. History retains up to fifty runs in the current page, with review images only for the five newest; reloading clears history.
+
+
+### Full 3D targets and custom target images
+
+Choose **Mannequin** under Target asset for a freestanding model with a head, torso, pelvis, arms, hands and legs. It has no rectangular scoring backer; gaps between body parts remain empty. Selecting this asset sets a 0.75 m width and 1.8 m height, which you can adjust. Target **Rotation** turns the entire target around its vertical axis, including its scoring coordinates and attached shot marks. Scoring zones on mannequins use the target's local front-view x/y coordinates; zones are not painted onto the sculpted body.
+
+Use **Custom target image** to upload JPEG, PNG or WebP (up to 12 MB / 40 megapixels). In the crop dialog, drag to reposition and use Zoom to fill the target-shaped crop. **Apply to cardboard** switches that target to a cardboard backer with your crop on its front. Cancel leaves the target unchanged; **Remove custom image** restores the standard artwork. Rotation and scoring zones still apply. Images are re-encoded to a bounded JPEG and embedded in exported/saved range JSON; no remote image service is required. A range permits up to 8 MB of embedded images and a 10 MB JSON import. Browser-local quick-save can reach the browser storage quota; the host folder supports the full range size.
+
+Barriers now include a beveled vehicle with sloped glazing, mirrors, grille, trim and wheels; masonry walls; open doorways with an open leaf; oil drums with hoops/lid; and 3-gun port barricades. Doorways and ports have real gaps. These are original procedural models designed for local browser rendering, not photogrammetry assets. Rotation, width, height and front–back length remain editable.
+
+### Segment focus and camera POV
+
+Enable **Move viewpoint along camera path** and draw at least two camera path points. Select the desired **Camera segment**, choose **Click focus point**, then click the floor beneath what the shooter should look at in overhead view. **Focus height** sets its vertical position. A gold ring and line display each saved focus point. Repeat for other segments; **Clear segment focus** restores that segment's heading behavior. Clearing the camera path also clears its segment focus settings.
+
+**Focus transition** controls how many seconds the camera spends easing between adjacent segment view directions, centered on the path join. The transition is shortened when neighboring segments are too short. A value of zero intentionally makes an immediate turn. Segments without explicit focus use the fixed/path-heading settings, and path-heading turns are also eased. Camera movement still follows the drawn line segments; this smooths the view rotation, not the shape of the travel path. **Camera height** and **Field of view** give additional POV control. The same time-based calculation drives both displays and shot scoring.
+
+### Shot review navigation
+
+Open **View frame** for a shot. Use **Previous shot / Next shot**, left/right arrow keys, or click the left/right half of the frame. The counter shows your position in chronological shot order. Navigation stops at the first/last shot and works for retained previous sessions. Older shots without retained images still show their metadata and counter. Existing hit/miss review controls remain in the shot list.
+
+### Host folders for saved ranges and video links
+
+Open **Saved ranges · host folder**, enter a name and select **Save range copy**. Each save creates a separate range file under `data/ranges/`; choose a saved item to load or delete it. The list refreshes when opened or when **Refresh list** is clicked. Range files include geometry, paths, focus points, settings and cropped target images.
+
+In the Video tab, open **Saved video links**, give the current YouTube link a name, and save it. **Load selected video** loads it through the existing YouTube controls. Links live under `data/videos/`. This stores links, not video downloads; uploaded video files still use the existing file picker.
+
+Both folders live beside the host server by default and survive browser resets and server restarts. Back up the entire `data` directory. Set `RANGE_DATA_DIR` to use another writable directory; Docker users should persist that location in a mounted volume. Saved user files are excluded from Git. Library access requires the unlocked host link printed by the server; the phone pairing code does not grant library access. The older browser quick-save and JSON import/export controls remain available.

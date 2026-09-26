@@ -18,6 +18,14 @@
 - Calibration survives operator layout changes, fixed-frame resizing, transient transport interruptions and backgrounding. Confirmed display-source changes still require realignment.
 - Paired synthetic-camera and two-window regression coverage, including an uploaded-video fixture and mocked YouTube player.
 
+## Completed: editor and library revision
+
+- Full-volume mannequins and target yaw rotation; improved vehicle geometry, masonry walls, open doorways, drums and port barricades.
+- Custom target-image upload with drag/zoom crop onto a cardboard backer; embedded in shared range files.
+- Per-segment overhead focus selection, eased camera direction transitions, configurable height/FOV.
+- Shot review previous/next buttons, arrow keys and image clicks.
+- Authenticated persistent host folders for saved ranges and named YouTube links.
+
 ## Hardware phase: optical reliability
 
 1. Collect real camera fixtures for TitanX and the exact DryFireMag-associated laser setup, on iOS Safari and Android Chrome.

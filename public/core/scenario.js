@@ -75,6 +75,44 @@ export function validateScenario(s) {
     typeof s.cameraMotion !== "boolean"
   )
     throw Error("Invalid scenario objects or paths.");
+  if (
+    !finite(s.cameraHeight ?? 1.65, 0.3, 3) ||
+    !finite(s.cameraFov ?? 55, 25, 100) ||
+    !finite(s.cameraFocusBlend ?? 1, 0, 5)
+  )
+    throw Error("Invalid camera POV settings.");
+  if (
+    s.cameraSegments !== undefined &&
+    (!Array.isArray(s.cameraSegments) ||
+      s.cameraSegments.length > Math.max(0, s.cameraPath.length - 1))
+  )
+    throw Error("Invalid camera segments.");
+  for (const segment of s.cameraSegments || [])
+    if (
+      !segment ||
+      typeof segment !== "object" ||
+      Array.isArray(segment) ||
+      (segment.focus !== undefined &&
+        (!point(segment.focus) || !finite(segment.focus.y ?? 1.4, 0, 10)))
+    )
+      throw Error("Invalid camera focus point.");
+  let imageBytes = 0;
+  for (const t of s.targets) {
+    if (!finite(t.rotation ?? 0, -180, 180))
+      throw Error("Invalid target rotation.");
+    if (t.image !== undefined) {
+      if (
+        typeof t.image !== "string" ||
+        !/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(
+          t.image,
+        ) ||
+        t.image.length > 400000
+      )
+        throw Error("Invalid target image (maximum 400 KB).");
+      imageBytes += t.image.length;
+    }
+  }
+  if (imageBytes > 8000000) throw Error("Target images exceed 8 MB per range.");
   const ids = new Set();
   for (const t of [...s.targets, ...s.barriers]) {
     if (
@@ -242,6 +280,10 @@ export const barrierAssets = [
   "fence",
   "window",
   "highway",
+  "wall",
+  "door",
+  "drum",
+  "ports",
 ];
 export const targetAssets = [
   "silhouette",

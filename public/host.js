@@ -1,3 +1,5 @@
+import { openTargetCrop } from "./core/image-crop.js";
+import { installSavedLibrary } from "./core/saved-library.js";
 import { SessionAudio } from "./core/audio.js";
 import { ProjectionLink } from "./core/projection-link.js";
 import { calculateZero, applyZero, outsideScreen } from "./core/zero.js";
@@ -84,6 +86,11 @@ function rebuild() {
   $("beepDuration").value = settings.beepDuration ?? 0.12;
   $("beepVolume").value = settings.volume ?? 0.08;
   $("cameraMotion").checked = scenario.cameraMotion;
+  for (const key of ["cameraHeight", "cameraFov", "cameraFocusBlend"])
+    $(key).value =
+      scenario[key] ??
+      { cameraHeight: 1.65, cameraFov: 55, cameraFocusBlend: 1 }[key];
+  refreshSegments();
   $("sceneTitle").textContent = scenario.name;
   const select = $("objects");
   select.replaceChildren();
@@ -115,6 +122,8 @@ function properties() {
     $("barrierAsset").value = t.asset ?? "block";
     $("barrierRotation").value = t.rotation ?? 0;
   } else {
+    $("targetRotation").value = t.rotation ?? 0;
+    $("removeTargetImage").disabled = !t.image;
     $("targetAsset").value = t.asset ?? "silhouette";
     $("targetEasing").value = t.easing ?? "linear";
     $("repeatEvery").value = t.repeatEvery ?? 0;
@@ -191,6 +200,7 @@ for (const [id, key] of [
     });
 for (const [id, key] of [
   ["targetAsset", "asset"],
+  ["targetRotation", "rotation"],
   ["targetEasing", "easing"],
   ["repeatEvery", "repeatEvery"],
   ["visibleFor", "visibleFor"],
@@ -201,6 +211,10 @@ for (const [id, key] of [
       object()[key] = ["asset", "easing"].includes(key)
         ? $(id).value
         : Number($(id).value);
+      if (key === "asset" && object().kind && object().asset === "mannequin") {
+        object().width = 0.75;
+        object().height = 1.8;
+      }
       if (key === "repeatEvery" && object().repeatEvery > 0)
         object().visibleFor = Math.min(
           object().visibleFor ?? 1,
@@ -217,6 +231,10 @@ $("barrierAsset").onchange = () =>
       fence: [4, 2, 0.2],
       window: [3, 2.6, 0.3],
       highway: [3, 1, 0.7],
+      wall: [4, 2.6, 0.25],
+      door: [2, 2.6, 0.3],
+      drum: [0.6, 0.9, 0.6],
+      ports: [1.8, 1.8, 0.15],
     }[asset];
     Object.assign(object(), {
       asset,
@@ -225,7 +243,14 @@ $("barrierAsset").onchange = () =>
       depth: dimensions[2],
     });
   });
-for (const key of ["cameraSpeed", "cameraHeading", "cameraHeadingMode"])
+for (const key of [
+  "cameraSpeed",
+  "cameraHeading",
+  "cameraHeadingMode",
+  "cameraHeight",
+  "cameraFov",
+  "cameraFocusBlend",
+])
   $(key).onchange = () =>
     edit(() => {
       scenario[key] =
@@ -352,7 +377,65 @@ function setDrawing(kind) {
 $("targetPath").onclick = () => setDrawing("target");
 $("cameraPath").onclick = () => setDrawing("camera");
 $("clearPath").onclick = () => edit(() => (object().path = []));
-$("clearCameraPath").onclick = () => edit(() => (scenario.cameraPath = []));
+$("clearCameraPath").onclick = () =>
+  edit(() => {
+    scenario.cameraPath = [];
+    scenario.cameraSegments = [];
+  });
+function refreshSegments() {
+  const select = $("cameraSegment"),
+    old = select.value;
+  select.replaceChildren();
+  for (let i = 0; i < scenario.cameraPath.length - 1; i++)
+    select.add(
+      new Option(`Segment ${i + 1}: point ${i + 1} → ${i + 2}`, String(i)),
+    );
+  if ([...select.options].some((o) => o.value === old)) select.value = old;
+  $("pickFocus").disabled = !select.options.length;
+  $("clearFocus").disabled = !select.options.length;
+  const focus = scenario.cameraSegments?.[Number(select.value)]?.focus;
+  $("focusHeight").value = focus?.y ?? 1.4;
+  $("focusSummary").textContent = focus
+    ? `Focus: x ${focus.x.toFixed(2)}, z ${focus.z.toFixed(2)}`
+    : "No focus point: uses camera heading. Select a segment and click focus point.";
+}
+$("cameraSegment").onchange = refreshSegments;
+$("pickFocus").onclick = () => {
+  setDrawing("focus");
+  $("editorHint").textContent =
+    "Click the floor below the focus point for this camera segment. Set focus height in the controls.";
+};
+$("clearFocus").onclick = () =>
+  edit(() => {
+    const item = scenario.cameraSegments?.[Number($("cameraSegment").value)];
+    if (item) delete item.focus;
+  });
+$("focusHeight").onchange = () =>
+  edit(() => {
+    const focus =
+      scenario.cameraSegments?.[Number($("cameraSegment").value)]?.focus;
+    if (focus) focus.y = Number($("focusHeight").value);
+  });
+$("targetImage").onchange = (e) => {
+  const file = e.target.files[0],
+    id = selected,
+    t = object();
+  e.target.value = "";
+  if (!file || !t?.kind || running) return;
+  openTargetCrop(
+    file,
+    t.width / t.height,
+    (image) =>
+      edit(() => {
+        const target = scenario.targets.find((t) => t.id === id);
+        if (!target) throw Error("Target was removed.");
+        target.image = image;
+        target.asset = "cardboard";
+      }),
+    notice,
+  );
+};
+$("removeTargetImage").onclick = () => edit(() => delete object().image);
 $("viewToggle").onclick = () => {
   if (running) return notice("End the session to edit.");
   range.editor = !range.editor;
@@ -394,7 +477,20 @@ $("range").onpointerdown = (e) => {
   if (drawing) {
     if (!floor) return;
     edit(() => {
-      if (drawing === "camera") scenario.cameraPath.push(floor);
+      if (drawing === "focus") {
+        const i = Number($("cameraSegment").value);
+        scenario.cameraSegments ||= [];
+        while (scenario.cameraSegments.length <= i)
+          scenario.cameraSegments.push({});
+        scenario.cameraSegments[i].focus = {
+          ...floor,
+          y: Number($("focusHeight").value),
+        };
+        drawing = null;
+        $("stage").classList.remove("drawing");
+        $("editorHint").textContent =
+          "Focus set. Select another segment to change its focus.";
+      } else if (drawing === "camera") scenario.cameraPath.push(floor);
       else if (object()?.kind) object().path.push(floor);
     });
     return;
@@ -460,7 +556,7 @@ $("exportScenario").onclick = () => {
 $("importScenario").onchange = async (e) => {
   const f = e.target.files[0];
   if (!f) return;
-  if (f.size > 1_000_000) return notice("Scenario exceeds 1 MB.");
+  if (f.size > 10_000_000) return notice("Scenario exceeds 10 MB.");
   try {
     const s = validateScenario(JSON.parse(await f.text()));
     edit(() => (scenario = s));
@@ -829,15 +925,39 @@ function updateStats() {
   $("reviewSummary").textContent =
     `${runShooter} · ${s.pending} pending review${s.first !== null ? ` · first ${s.first.toFixed(2)}s` : ""}${s.splits.length ? ` · last split ${s.splits.at(-1).toFixed(2)}s` : ""}`;
 }
+let reviewIndex = -1;
 function showSnapshot(shot) {
-  if (!shot.image) return;
-  $("snapshotImage").src = shot.image;
+  reviewIndex = shots.indexOf(shot);
+  $("reviewPosition").textContent = `${reviewIndex + 1} / ${shots.length}`;
+  $("previousShot").disabled = reviewIndex <= 0;
+  $("nextShot").disabled = reviewIndex >= shots.length - 1;
+  $("snapshotImage").hidden = !shot.image;
+  $("snapshotPoint").hidden = !shot.image;
+  $("snapshotImage").src = shot.image || "";
   $("snapshotPoint").style.left = `${shot.x * 100}%`;
   $("snapshotPoint").style.top = `${shot.y * 100}%`;
   $("snapshotTitle").textContent =
     `${shot.shooter} · ${shot.time.toFixed(2)}s · ${shot.result}`;
-  $("snapshotDialog").showModal();
+  if (!$("snapshotDialog").open) $("snapshotDialog").showModal();
 }
+const moveReview = (delta) => {
+  const next = reviewIndex + delta;
+  if (next >= 0 && next < shots.length) showSnapshot(shots[next]);
+};
+$("previousShot").onclick = () => moveReview(-1);
+$("nextShot").onclick = () => moveReview(1);
+window.addEventListener("keydown", (e) => {
+  if (!$("snapshotDialog").open) return;
+  if (["INPUT", "SELECT", "TEXTAREA"].includes(e.target.tagName)) return;
+  if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+    e.preventDefault();
+    moveReview(e.key === "ArrowLeft" ? -1 : 1);
+  }
+});
+$("snapshotImage").onclick = (e) => {
+  const r = e.target.getBoundingClientRect();
+  moveReview(e.clientX < r.left + r.width / 2 ? -1 : 1);
+};
 $("closeSnapshot").onclick = () => $("snapshotDialog").close();
 function addShotRow(shot) {
   const row = document.createElement("div");
@@ -1494,3 +1614,11 @@ setInterval(
   () => projection.send({ type: "clock", offset: channel?.offset || 0 }),
   3000,
 );
+
+installSavedLibrary({
+  getScenario: () => validateScenario(scenario),
+  loadScenario: (s) => edit(() => (scenario = validateScenario(s))),
+  getToken: () => sessionStorage.getItem(hostKey),
+  notice,
+  isRunning: () => running,
+});

@@ -1,3 +1,4 @@
+import { cameraPose } from "./core/camera-path.js";
 import * as THREE from "/vendor/three/build/three.module.js";
 import {
   targetPosition,
@@ -26,6 +27,9 @@ export class RangeScene {
     this.overhead.up.set(0, 0, -1);
     this.overhead.lookAt(0, 0, -4);
     this.scene.add(new THREE.HemisphereLight(0xdcecff, 0x746042, 3));
+    const sun = new THREE.DirectionalLight(0xffefd9, 3);
+    sun.position.set(-5, 12, 9);
+    this.scene.add(sun);
     const floor = new THREE.Mesh(
       new THREE.PlaneGeometry(100, 100),
       new THREE.MeshStandardMaterial({ color: 0x26303b, roughness: 1 }),
@@ -117,6 +121,37 @@ export class RangeScene {
           new THREE.Line(g, new THREE.LineBasicMaterial({ color })),
         );
       }
+    for (const [i, segment] of (this.scenario.cameraSegments || []).entries()) {
+      if (!segment.focus || !this.scenario.cameraPath[i + 1]) continue;
+      const a = this.scenario.cameraPath[i],
+        b = this.scenario.cameraPath[i + 1],
+        f = segment.focus;
+      const geo = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3((a.x + b.x) / 2, 0.08, (a.z + b.z) / 2),
+        new THREE.Vector3(f.x, 0.08, f.z),
+      ]);
+      this.pathGroup.add(
+        new THREE.Line(
+          geo,
+          new THREE.LineDashedMaterial({
+            color: 0xffdc91,
+            dashSize: 0.25,
+            gapSize: 0.15,
+          }),
+        ),
+      );
+      this.pathGroup.children.at(-1).computeLineDistances();
+      const marker = new THREE.Mesh(
+        new THREE.RingGeometry(0.15, 0.23, 24),
+        new THREE.MeshBasicMaterial({
+          color: 0xffdc91,
+          side: THREE.DoubleSide,
+        }),
+      );
+      marker.rotation.x = -Math.PI / 2;
+      marker.position.set(f.x, 0.1, f.z);
+      this.pathGroup.add(marker);
+    }
   }
   setTime(time) {
     this.time = time;
@@ -125,44 +160,19 @@ export class RangeScene {
         const t = m.userData.target,
           p = targetPosition(t, time);
         m.position.set(p.x, t.height / 2, p.z);
+        m.rotation.y = ((t.rotation || 0) * Math.PI) / 180;
         m.visible = this.editor || targetActive(t, time);
       }
-    const p = this.scenario.cameraMotion
-      ? pathPosition(
-          this.scenario.cameraPath,
-          time * (this.scenario.cameraSpeed ?? 0.6),
-          false,
-        )
-      : null;
-    this.camera.position.set(p?.x ?? 0, 1.65, p?.z ?? 8);
-    let heading = ((this.scenario.cameraHeading || 0) * Math.PI) / 180;
-    if (p && this.scenario.cameraHeadingMode === "path") {
-      const next = pathPosition(
-        this.scenario.cameraPath,
-        (time + 0.05) * (this.scenario.cameraSpeed ?? 0.6),
-        false,
-      );
-      const prev = pathPosition(
-        this.scenario.cameraPath,
-        Math.max(0, time - 0.05) * (this.scenario.cameraSpeed ?? 0.6),
-        false,
-      );
-      if (next && prev && Math.hypot(next.x - prev.x, next.z - prev.z) > 0.0001)
-        heading += Math.atan2(next.x - prev.x, -(next.z - prev.z));
-      else {
-        const path = this.scenario.cameraPath,
-          end = path.at(-1);
-        const prior = path
-          .slice(0, -1)
-          .reverse()
-          .find((q) => Math.hypot(end.x - q.x, end.z - q.z) > 0.0001);
-        if (prior) heading += Math.atan2(end.x - prior.x, -(end.z - prior.z));
-      }
+    const pose = cameraPose(this.scenario, time);
+    this.camera.position.set(pose.x, pose.y, pose.z);
+    if (this.camera.fov !== pose.fov) {
+      this.camera.fov = pose.fov;
+      this.camera.updateProjectionMatrix();
     }
     this.camera.lookAt(
-      (p?.x ?? 0) + Math.sin(heading) * 20,
-      1.4,
-      (p?.z ?? 8) - Math.cos(heading) * 20,
+      pose.x + Math.sin(pose.yaw) * Math.cos(pose.pitch) * 20,
+      pose.y + Math.sin(pose.pitch) * 20,
+      pose.z - Math.cos(pose.yaw) * Math.cos(pose.pitch) * 20,
     );
     this.camera.updateMatrixWorld();
     this.scene.updateMatrixWorld(true);
