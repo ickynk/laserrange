@@ -1,3 +1,5 @@
+import { SegmentClock } from "./core/segment-clock.js";
+import { ProjectorControls, CONTROL_TOP } from "./core/projector-controls.js";
 import { RangeScene } from "./range.js";
 import { defaultScenario, validateScenario } from "./core/scenario.js";
 import { applyZero, outsideScreen } from "./core/zero.js";
@@ -28,6 +30,14 @@ let scenario = defaultScenario(),
   offline = false;
 const now = () => Date.now() + offset;
 range.setScenario(scenario);
+let timeline = new SegmentClock(scenario, 0),
+  laserControls = false,
+  controlZero = null;
+const controls = new ProjectorControls(
+  $("simulatorControls"),
+  now,
+  (action, input) => send({ type: "simulator-action", action, input }),
+);
 const ref = document.createElement("canvas");
 ref.width = 480;
 ref.height = 270;
@@ -122,6 +132,8 @@ async function configure(m) {
   history = [];
   elapsed = 0;
   mode = m.mode;
+  timeline = new SegmentClock(scenario, 0, mode);
+  controls.menu = false;
   if (!["3d", "upload", "youtube"].includes(mode))
     throw Error("Invalid projector mode.");
   $("display").hidden = mode !== "3d";
@@ -196,6 +208,16 @@ async function handle(m) {
         elapsed = 0;
       }
       break;
+    case "control-state":
+      laserControls = m.laser === true;
+      controlZero = m.zero || null;
+      break;
+    case "range-list":
+      controls.setItems(m.items || [], m.error || "");
+      break;
+    case "segment":
+      if (running && m.runId === runId) timeline.step(m.direction, now());
+      break;
     case "clock":
       offset = m.offset || 0;
       break;
@@ -215,6 +237,8 @@ async function handle(m) {
         );
       clearError();
       scenario = validateScenario(m.scenario);
+      timeline = new SegmentClock(scenario, m.started, mode);
+      controls.menu = false;
       range.setScenario(scenario, m.roles);
       started = m.started;
       runId = m.runId;
@@ -241,7 +265,7 @@ async function handle(m) {
       stop();
       break;
     case "shot":
-      if (m.runId === runId) record(m.shot, m.demo);
+      if (!running || m.runId === runId) record(m.shot, m.demo);
       break;
     case "toggle-play":
       if (
@@ -265,6 +289,19 @@ async function handle(m) {
 }
 function record(m, isDemo = false) {
   if (
+    !calibrating &&
+    !offline &&
+    Number.isFinite(m.x) &&
+    Number.isFinite(m.y)
+  ) {
+    const p = isDemo ? m : applyZero(m, running ? shotZero : controlZero);
+    if (p.y >= CONTROL_TOP && p.y <= 1 && p.x >= 0 && p.x <= 1) {
+      if (isDemo || laserControls)
+        controls.hit(p.x, p.y, m.time, isDemo ? "demo" : "laser");
+      return;
+    }
+  }
+  if (
     !running ||
     demo !== isDemo ||
     calibrating ||
@@ -279,7 +316,12 @@ function record(m, isDemo = false) {
   if (!isDemo) m = applyZero(m, shotZero);
   const capture = m.time - (isDemo ? 0 : latency),
     time = (capture - started) / 1000;
-  if (!Number.isFinite(time) || time < 0 || time > scenario.duration) return;
+  if (
+    !Number.isFinite(time) ||
+    time < 0 ||
+    (!timeline.enabled && time > scenario.duration)
+  )
+    return;
   const h = history.reduce(
     (best, f) =>
       Math.abs(f.time - capture) < Math.abs((best?.time ?? Infinity) - capture)
@@ -328,6 +370,20 @@ $("projectorInput").onpointerdown = (e) => {
     true,
   );
 };
+$("projectorStage").addEventListener(
+  "pointerdown",
+  (e) => {
+    if (calibrating || offline || e.button !== 0 || !e.isPrimary) return;
+    const r = $("projectorStage").getBoundingClientRect(),
+      x = (e.clientX - r.left) / r.width,
+      y = (e.clientY - r.top) / r.height;
+    if (controls.hit(x, y, now(), "pointer")) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  },
+  true,
+);
 $("projectorInput").oncontextmenu = (e) => e.preventDefault();
 $("enterFullscreen").onclick = async () => {
   try {
@@ -367,13 +423,24 @@ function animate(t) {
       fail(e.message);
     });
   }
-  if (running)
-    elapsed = Math.max(
-      0,
-      Math.min((now() - started) / 1000, scenario.duration),
-    );
+  if (running) elapsed = timeline.time(now());
+  const nav = timeline.state(now());
+  controls.draw({
+    visible: !calibrating,
+    ready: ready && !offline,
+    running,
+    nav,
+    label:
+      running && timeline.enabled
+        ? nav.held
+          ? `Hold at point ${nav.point + 1} / ${nav.total + 1} · use Next / Previous · End finishes`
+          : "Moving to endpoint…"
+        : "Projector controls · laser or click",
+  });
+  $("simulatorControls").hidden = calibrating;
+  $("simulatorInput").hidden = calibrating;
   if (mode === "3d" && !calibrating) range.render(elapsed);
-  if (running && elapsed >= scenario.duration) {
+  if (running && !timeline.enabled && elapsed >= scenario.duration) {
     elapsed = Math.max(0, scenario.duration - 0.001);
     stop();
   }
@@ -381,6 +448,7 @@ function animate(t) {
   lastFrame = t;
   send({
     type: "tick",
+    nav,
     runId,
     elapsed,
     mode,
@@ -412,6 +480,7 @@ function animate(t) {
       h = drawable.videoHeight * f;
     ctx.drawImage(drawable, (480 - w) / 2, (270 - h) / 2, w, h);
   } else ctx.drawImage(drawable, 0, 0, 480, 270);
+  if (!calibrating) ctx.drawImage($("simulatorControls"), 0, 0, 480, 270);
   const frame = {
     type: "reference",
     time: now(),

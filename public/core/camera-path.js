@@ -56,17 +56,16 @@ export function cameraPose(s, time) {
     let boundary = 0;
     for (let i = 0; i < lengths.length - 1; i++) {
       boundary += lengths[i];
-      const half = Math.min(
-        ((s.cameraFocusBlend ?? 1) * speed) / 2,
-        lengths[i] / 2,
-        lengths[i + 1] / 2,
-      );
-      if (
-        half > 0 &&
-        distance >= boundary - half &&
-        distance <= boundary + half
-      ) {
-        const t = smooth((distance - boundary + half) / (2 * half)),
+      const seconds = (s.cameraFocusBlend ?? 1) * speed;
+      // At a held endpoint keep the completed segment's focus; begin the turn
+      // only when the shooter advances into the next segment.
+      const half = Math.min(seconds / 2, lengths[i] / 2, lengths[i + 1] / 2);
+      const begin = s.pauseAtSegments ? boundary : boundary - half;
+      const end = s.pauseAtSegments
+        ? boundary + Math.min(seconds, lengths[i + 1])
+        : boundary + half;
+      if (end > begin && distance >= begin && distance <= end) {
+        const t = smooth((distance - begin) / (end - begin)),
           u = orientation(i),
           v = orientation(i + 1);
         view = {

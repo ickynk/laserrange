@@ -754,3 +754,22 @@ summary {
 #reviewPosition {
   margin: 0 1em;
 }
+
+#simulatorControls {
+  z-index: 7;
+  pointer-events: none;
+}
+#projectorStage #pattern {
+  z-index: 8;
+}
+
+#simulatorInput {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 14%;
+  z-index: 7;
+  cursor: crosshair;
+  touch-action: none;
+}

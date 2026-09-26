@@ -26,6 +26,12 @@
 - Shot review previous/next buttons, arrow keys and image clicks.
 - Authenticated persistent host folders for saved ranges and named YouTube links.
 
+## Completed: shooter progression controls
+
+- Opt-in camera-segment endpoint holds, next/previous movement and explicit session end.
+- Laser/click projector strip with Start, Restart, saved-range menu and segment controls.
+- Control strikes excluded from scoring, cooldown/stale-pulse filtering, and preserved calibration frame.
+
 ## Hardware phase: optical reliability
 
 1. Collect real camera fixtures for TitanX and the exact DryFireMag-associated laser setup, on iOS Safari and Android Chrome.

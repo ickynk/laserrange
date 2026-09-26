@@ -5,8 +5,8 @@ Version 0.1.0, hardware-validation alpha.
 | Check | Result |
 |---|---|
 | JavaScript syntax (`npm run check`) | Passed |
-| Node unit/integration suite (`npm test`) | 35 passed, 0 failed |
-| Playwright browser suite | 28 distinct tests passed, 0 failed (27-test full run plus 4-test editor run, three overlapping) |
+| Node unit/integration suite (`npm test`) | 39 passed, 0 failed |
+| Playwright browser suite | 30 distinct tests passed across full run and isolated retry; full run: 29 passed, 1 failed; isolated camera retry: passed |
 | Rendered desktop interface | Screenshot inspected |
 | Physical iPhone / Android camera | User reports working auto-alignment and horizontal placement; successful screen-zero correction; connection-recovery hardware retest pending |
 | TitanX / DryFireMag-associated laser | User hardware feedback received; device-specific accuracy unverified |
@@ -48,3 +48,8 @@ Balanced-video regression confirms an onset core can fade while broad neighborin
 
 
 Editor revision tests verify camera-focus continuity and deterministic historical poses, invalid POV/image/rotation inputs, authenticated folder access, range/image round-trips and persistence after server restart, invalid link rejection, and deletion. Browser coverage exercises crop application, target rotation, overhead focus selection, host-folder reloads, saved video-link creation, keyboard/button review navigation including disabled-button boundaries, full-volume mannequin geometry and limb gaps, rotated target local hit coordinates/impact attachment, and custom-image rendering plus scoring in the separate projector. Updated props were inspected in a rendered gallery. Full-volume mannequins and props remain procedural assets; their appearance is not a photorealism claim.
+
+
+Segment progression regressions cover endpoint holds beyond the nominal duration, continued shot recording, forward/reverse travel, retained focus at holds, historical scene times, legacy/video behavior and invalid path durations. Projector controls are exercised with paired protocol-level laser messages and native pointer input: idle Start, Next/Previous, Restart, saved-range menu/load, and exclusion of control strikes from shot totals. Unit coverage checks disabled/stale controls and duplicate suppression. The rendered lower-border strip was visually inspected. Physical laser activation of the strip remains unverified.
+
+The 30-test browser run passed 29 tests, but the separate-projector synthetic camera test recorded its first shot without classifying the expected miss. An unchanged isolated rerun passed the entire camera flow (including video, zero and reconnection) in 1.9 minutes. This is an intermittent scoring/timing test failure; its exact cause is not established. Scoring confidence and reference-age safeguards were not weakened.

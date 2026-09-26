@@ -1,3 +1,4 @@
+import { SegmentClock } from "./core/segment-clock.js";
 import { openTargetCrop } from "./core/image-crop.js";
 import { installSavedLibrary } from "./core/saved-library.js";
 import { SessionAudio } from "./core/audio.js";
@@ -41,6 +42,9 @@ let currentTime = 0,
   sessionsSelect,
   lastArchivedStart = null;
 const pastSessions = [];
+let timeline = null,
+  remoteNav = null,
+  simulatorBusy = false;
 const sessionAudio = new SessionAudio();
 let selectedZone = 0,
   runScenarioKey = "",
@@ -86,6 +90,7 @@ function rebuild() {
   $("beepDuration").value = settings.beepDuration ?? 0.12;
   $("beepVolume").value = settings.volume ?? 0.08;
   $("cameraMotion").checked = scenario.cameraMotion;
+  $("pauseAtSegments").checked = scenario.pauseAtSegments ?? false;
   for (const key of ["cameraHeight", "cameraFov", "cameraFocusBlend"])
     $(key).value =
       scenario[key] ??
@@ -360,6 +365,16 @@ $("deleteObject").onclick = () =>
     scenario.targets = scenario.targets.filter((t) => t.id !== selected);
     scenario.barriers = scenario.barriers.filter((t) => t.id !== selected);
   });
+$("pauseAtSegments").onchange = () =>
+  edit(() => (scenario.pauseAtSegments = $("pauseAtSegments").checked));
+function stepSegment(direction) {
+  if (!running) return;
+  if (projection?.connected)
+    projection.send({ type: "segment", runId: started, direction });
+  else timeline?.step(direction, now());
+}
+$("previousSegment").onclick = () => stepSegment(-1);
+$("nextSegment").onclick = () => stepSegment(1);
 $("cameraMotion").onchange = () =>
   edit(() => (scenario.cameraMotion = $("cameraMotion").checked));
 function setDrawing(kind) {
@@ -984,6 +999,10 @@ function addShotRow(shot) {
   $("shots").prepend(row);
 }
 function recordShot(m, demo = false) {
+  if (projection?.connected && !calibrating) {
+    projection.send({ type: "shot", runId: started, shot: m, demo });
+    return;
+  }
   if (!running) return;
   if (demo !== runDemo) {
     if (!demo)
@@ -992,15 +1011,11 @@ function recordShot(m, demo = false) {
       );
     return;
   }
-  if (projection?.connected) {
-    projection.send({ type: "shot", runId: started, shot: m, demo });
-    return;
-  }
   if (!demo) m = applyZero(m, runZero);
   const capture = m.time - (demo ? 0 : runLatency);
   if (capture < started) return;
   const elapsed = (capture - started) / 1000;
-  if (elapsed > scenario.duration) return;
+  if (!timeline?.enabled && elapsed > scenario.duration) return;
   const h = history.reduce(
     (best, f) =>
       Math.abs(f.time - capture) < Math.abs((best?.time ?? Infinity) - capture)
@@ -1059,6 +1074,8 @@ function startRun() {
   }
   running = true;
   started = now() + (scenario.session?.countdown || 0) * 1000;
+  timeline = new SegmentClock(scenario, started, mode);
+  remoteNav = null;
   mediaStarted = false;
   $("movie").pause();
   youtubePlayer?.pauseVideo?.();
@@ -1155,13 +1172,24 @@ function animate(t) {
   currentTime = projection?.connected
     ? remoteElapsed
     : running
-      ? Math.max(0, (now() - started) / 1000)
+      ? timeline.time(now())
       : currentTime;
   if (!projection?.connected || range.editor) range.render(currentTime);
   if (running) {
     $("clock").textContent = stamp(Math.min(currentTime, scenario.duration));
-    if (currentTime >= scenario.duration) stopRun();
+    if (!timeline?.enabled && currentTime >= scenario.duration) stopRun();
   }
+  const nav = projection?.connected ? remoteNav : timeline?.state(now());
+  $("previousSegment").disabled = !running || !nav?.previous;
+  $("nextSegment").disabled = !running || !nav?.next;
+  $("segmentStatus").textContent =
+    running && nav?.enabled
+      ? nav.held
+        ? `Holding at point ${nav.point + 1} / ${nav.total + 1}`
+        : "Moving to endpoint…"
+      : "";
+  if (running && timeline?.enabled)
+    $("clock").textContent = stamp(Math.max(0, (now() - started) / 1000));
   lastRender = t;
   if (projection?.connected) return;
   if (t - lastFrame < 90) return;
@@ -1322,6 +1350,7 @@ async function connectHost(explicitToken) {
           channel.send({ type: "pattern", active: calibrating });
         }
         if (!m.ready && running && !runDemo) stopRun();
+        sendControlState();
       })
       .on("alignment-changed", clearAllZeros)
       .on("zero-request", (m) => zeroAction(m.action))
@@ -1330,6 +1359,7 @@ async function connectHost(explicitToken) {
       })
       .on("sensitivity", (m) => {
         phoneAdjusting = m.active;
+        sendControlState();
         if (zeroSession) updateZeroStatus();
         if (phoneReady)
           $("connection").textContent = m.active
@@ -1526,7 +1556,55 @@ function configureProjection() {
     offset: channel?.offset || 0,
   });
 }
+async function simulatorAction(m) {
+  if (simulatorBusy || calibrating || zeroSession) return;
+  if (
+    m.input === "laser" &&
+    (!phoneReady || phoneAdjusting || $("demo").checked)
+  )
+    return;
+  if (m.input === "demo" && !$("demo").checked) return;
+  if (m.action === "start") return startRun();
+  if (m.action === "restart") {
+    if (running) stopRun();
+    return startRun();
+  }
+  if (m.action === "end") return stopRun();
+  if (m.action === "previous" || m.action === "next")
+    return stepSegment(m.action === "next" ? 1 : -1);
+  if (m.action !== "ranges" && !/^load:[0-9a-f-]{36}$/.test(m.action)) return;
+  simulatorBusy = true;
+  try {
+    if (running) stopRun();
+    const id = m.action.startsWith("load:") ? m.action.slice(5) : "";
+    const response = await fetch("/api/library/ranges" + (id ? "/" + id : ""), {
+      headers: {
+        Authorization: `Bearer ${sessionStorage.getItem(hostKey) || ""}`,
+      },
+    });
+    const data = await response.json();
+    if (!response.ok) throw Error(data.error);
+    if (!id)
+      projection.send({
+        type: "range-list",
+        items: data.items.map((i) => ({ id: i.id, name: i.name })),
+      });
+    else {
+      const next = validateScenario(data.scenario);
+      setMode("3d");
+      edit(() => (scenario = next));
+      configureProjection();
+      notice(`Loaded ${data.name}. Use Start when ready.`);
+    }
+  } catch (e) {
+    notice(e.message);
+    projection?.send({ type: "range-list", items: [], error: e.message });
+  } finally {
+    simulatorBusy = false;
+  }
+}
 function onProjectionMessage(m) {
+  if (m.type === "simulator-action") simulatorAction(m);
   if (m.type === "connected") {
     invalidateProjection(
       "Projector connected. Move it to the projector display, enter fullscreen, then calibrate the phone.",
@@ -1535,6 +1613,7 @@ function onProjectionMessage(m) {
   }
   if (m.type === "ready") {
     projection.ready = true;
+    sendControlState();
     notice(
       phoneReady
         ? "Projector ready. Camera alignment retained."
@@ -1547,9 +1626,14 @@ function onProjectionMessage(m) {
     if (phoneConnected) channel?.send(m);
   }
   if (m.type === "tick") {
+    remoteNav = m.nav;
     remoteElapsed = m.elapsed;
     if (running)
-      $("clock").textContent = stamp(Math.min(m.elapsed, scenario.duration));
+      $("clock").textContent = stamp(
+        timeline?.enabled
+          ? Math.max(0, (now() - started) / 1000)
+          : Math.min(m.elapsed, scenario.duration),
+      );
     $("playbackStatus").textContent =
       m.mode === "3d"
         ? ""
@@ -1610,10 +1694,19 @@ $("seekVideo").onclick = () => {
     $("movie").currentTime = Math.min(time, $("movie").duration);
   if (mode === "youtube") youtubePlayer?.seekTo?.(time, true);
 };
-setInterval(
-  () => projection.send({ type: "clock", offset: channel?.offset || 0 }),
-  3000,
-);
+function sendControlState() {
+  projection?.send({
+    type: "control-state",
+    laser: phoneReady && !phoneAdjusting && !$("demo").checked,
+    zero: shooterZeros.get($("shooter").value.trim() || "Shooter") || null,
+  });
+}
+$("demo").addEventListener("change", sendControlState);
+$("shooter").addEventListener("change", sendControlState);
+setInterval(() => {
+  projection.send({ type: "clock", offset: channel?.offset || 0 });
+  sendControlState();
+}, 3000);
 
 installSavedLibrary({
   getScenario: () => validateScenario(scenario),

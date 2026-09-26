@@ -96,6 +96,23 @@ export function validateScenario(s) {
         (!point(segment.focus) || !finite(segment.focus.y ?? 1.4, 0, 10)))
     )
       throw Error("Invalid camera focus point.");
+  if (typeof (s.pauseAtSegments ?? false) !== "boolean")
+    throw Error("Invalid segment pause option.");
+  if (s.pauseAtSegments && s.cameraMotion) {
+    const travel = s.cameraPath
+      .slice(1)
+      .reduce(
+        (n, p, i) =>
+          n +
+          Math.hypot(p.x - s.cameraPath[i].x, p.z - s.cameraPath[i].z) /
+            (s.cameraSpeed ?? 0.6),
+        0,
+      );
+    if (travel >= s.duration)
+      throw Error(
+        "Duration must exceed the full camera path travel time when segment pauses are enabled.",
+      );
+  }
   let imageBytes = 0;
   for (const t of s.targets) {
     if (!finite(t.rotation ?? 0, -180, 180))

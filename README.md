@@ -24,6 +24,7 @@ No build step, database, paid service, or native mobile app is needed. Dependenc
 - Overhead drag-and-drop placement, numeric properties, target appearance windows, speed, ordered paths, and randomized armed/unarmed roles per run.
 - Full-volume mannequins, rotating targets, improved vehicles/walls/doorways/drums/ported barricades, and custom target-image upload with drag/zoom cropping onto cardboard.
 - Configurable scoring zones, target repeats/easing, camera speed/height/FOV and per-segment focus points with smooth view transitions.
+- Optional segment holds with shooter-operated Next/Previous; projector laser/click controls for Start, Restart, saved ranges and End.
 - Scenario quick-save in browser storage, persistent host range/video-link folders, and versioned JSON import/export including custom target images.
 - Host pairing link/QR code, six-digit phone pairing, role isolation, origin checks, and limited connection attempts.
 - Browser rear camera, automatic black-and-white coded-marker alignment with an independent center check and manual numbered-crosshair fallback, perspective rectification, ambient baseline, three test pulses, red/green selection, and adjustable threshold.

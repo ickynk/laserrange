@@ -46,3 +46,25 @@ test("POV validates bounds and malformed focus/image/rotation data", () => {
   s.targets[0].image = "data:image/svg+xml;base64,AAAA";
   assert.throws(() => validateScenario(s));
 });
+
+test("Paused endpoints retain the completed segment focus and ease after advancing", () => {
+  const s = {
+    ...defaultScenario(),
+    cameraMotion: true,
+    pauseAtSegments: true,
+    cameraSpeed: 1,
+    cameraPath: [
+      { x: 0, z: 8 },
+      { x: 0, z: 4 },
+      { x: 4, z: 4 },
+    ],
+    cameraSegments: [
+      { focus: { x: -5, z: -6, y: 1.4 } },
+      { focus: { x: 5, z: -6, y: 1.4 } },
+    ],
+    cameraFocusBlend: 1,
+  };
+  assert.ok(Math.abs(cameraPose(s, 4).yaw - Math.atan2(-5, 10)) < 1e-9);
+  assert.ok(Math.abs(cameraPose(s, 4.001).yaw - cameraPose(s, 4).yaw) < 0.001);
+  assert.ok(cameraPose(s, 5).yaw > 0);
+});

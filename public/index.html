@@ -262,6 +262,17 @@
             ><input id="cameraMotion" type="checkbox" /> Move viewpoint along
             camera path</label
           >
+          <label class="check"
+            ><input id="pauseAtSegments" type="checkbox" /> Pause at camera
+            segment ends</label
+          >
+          <p class="hint">
+            Hold scene progression at each endpoint; shots still count. Use Next
+            / Previous to move. Shot timer continues.
+          </p>
+          <button id="previousSegment">Previous segment</button
+          ><button id="nextSegment">Next segment</button>
+          <p id="segmentStatus" class="hint"></p>
           <div>
             <label
               >Camera height · m<input
