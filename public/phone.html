@@ -37,6 +37,14 @@
           audio. Say one command at a time; video dialogue can also trigger
           commands. Keep this page visible.
         </p>
+        <label
+          ><input id="fastVoice" type="checkbox" /> Faster voice response</label
+        >
+        <p class="hint">
+          Optional: act on an exact preliminary command stable for 250 ms. This
+          may respond sooner, but speech recognition can revise it afterward.
+          Leave off to wait for final recognition.
+        </p>
         <button id="enableVoice">Enable microphone &amp; voice</button>
         <button id="disableVoice" disabled>Stop voice</button>
         <p id="voiceStatus" role="status">Voice controls off.</p>

@@ -1,3 +1,4 @@
+import { followPulse } from "./pulse-track.js";
 import { chroma } from "./detector.js";
 
 // Camera-only video is ambiguous: require a compact, stationary, short flash.
@@ -15,6 +16,7 @@ export class VideoPulseFilter {
     this.reasons = {};
     this.candidates = 0;
     this.confirmed = 0;
+    this.lastFrame = null;
   }
   reject(reason) {
     this.rejected++;
@@ -63,7 +65,14 @@ export class VideoPulseFilter {
     this.candidates += candidates.length;
     const previous = this.previous;
     this.previous = new Uint8ClampedArray(frame);
+    const gap = this.lastFrame !== null && time - this.lastFrame > maxGap;
+    this.lastFrame = time;
     if (!previous) return [];
+    if (gap) {
+      this.reject("frame gap");
+      this.pending = [];
+      return [];
+    }
     let changed = 0,
       total = 0;
     for (let i = 0; i < frame.length; i += 64) {
@@ -85,6 +94,25 @@ export class VideoPulseFilter {
       keep = [];
     for (const p of this.pending) {
       const signal = this.signal(frame, p, color, threshold);
+      const continuation =
+        !strict &&
+        followPulse(
+          frame,
+          p.background,
+          p.track,
+          this.width,
+          this.height,
+          color,
+          threshold,
+          p.radius * 2,
+        );
+      const traveled =
+        continuation && Math.hypot(continuation.x - p.x, continuation.y - p.y);
+      // A fading trail can move without becoming another shot. A rigid,
+      // equally bright translated object remains ambiguous and is rejected.
+      const fadingTrail = continuation && continuation.peak <= p.peak * 0.8;
+      if (continuation && (!traveled || traveled <= motionLimit || fadingTrail))
+        p.track = continuation;
       const values = this.patch(frame, p.x, p.y, color, p.radius);
       const coreActive = p.core.filter(
         ({ i, peak }) =>
@@ -96,7 +124,17 @@ export class VideoPulseFilter {
       if (time - p.lastFrame > maxGap) this.reject("frame gap");
       else if (time - p.time > maxDuration) this.reject("pulse too long");
       else if (strict && signal.drift > motionLimit) this.reject("movement");
-      else if (ended) {
+      else if (
+        !strict &&
+        continuation &&
+        traveled > motionLimit &&
+        !fadingTrail
+      )
+        this.reject("movement");
+      else if (!strict && ended && continuation && fadingTrail) {
+        p.lastFrame = time;
+        keep.push(p);
+      } else if (ended) {
         // Reject a bright object which has simply moved beside the original spot.
         if (
           signal.count >= p.core.length * 0.6 &&
@@ -131,6 +169,8 @@ export class VideoPulseFilter {
         y,
         radius,
         before: this.patch(previous, x, y, color, radius),
+        background: previous,
+        track: { x, y },
         time,
         lastFrame: time,
         hit,
@@ -148,6 +188,27 @@ export class VideoPulseFilter {
       });
       if (p.core.length < 2 || (strict && signal.drift > motionLimit)) {
         this.reject("unstable onset");
+        continue;
+      }
+      p.peak = Math.max(...p.core.map(({ peak }) => peak));
+      // Detect a colored object entering from beside the onset: its old pixels
+      // fade while similarly colored new pixels appear. Do not reject a pulse
+      // merely because there is red/green elsewhere in the video.
+      let vacated = 0;
+      for (let i = 0; i < onset.length; i++) {
+        const distance = Math.hypot(
+          (i % size) - radius,
+          Math.floor(i / size) - radius,
+        );
+        if (
+          distance > coreRadius &&
+          p.before[i] >= threshold &&
+          p.before[i] - onset[i] >= Math.max(threshold * 0.6, p.peak * 0.5)
+        )
+          vacated++;
+      }
+      if (vacated >= Math.max(2, p.core.length * 0.5)) {
+        this.reject("moving background");
         continue;
       }
       snapshot ??= image?.();

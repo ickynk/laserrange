@@ -68,6 +68,7 @@ const voice = new VoiceControl({
   Recognition: window.SpeechRecognition || window.webkitSpeechRecognition,
   available: () => connected && !document.hidden,
   runId: () => voiceRunId,
+  fast: () => $("fastVoice").checked,
   command: (command, runId) => {
     if (!runId) {
       $("voiceResult").textContent = "Start a session first.";
@@ -102,6 +103,7 @@ const voice = new VoiceControl({
 });
 $("enableVoice").onclick = () => voice.start();
 $("disableVoice").onclick = () => voice.stop();
+$("fastVoice").onchange = () => voice.resetRun();
 if (!voice.Recognition) {
   $("enableVoice").disabled = true;
   $("voiceStatus").textContent =
@@ -720,6 +722,7 @@ function processFrame() {
       brightPercent: n ? (bright * 100) / n : null,
       darkPercent: n ? (dark * 100) / n : null,
       alignment: alignmentQuality,
+      suppressed: detector.suppressed,
       candidates: videoFilter.candidates,
       confirmed: videoFilter.confirmed,
       reasons: videoFilter.reasons,

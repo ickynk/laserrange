@@ -1,6 +1,6 @@
 # Hardware acceptance plan
 
-**Status: not performed on physical hardware.** Synthetic tests do not establish real-world detection accuracy. Record results separately for each phone, laser configuration, projection distance, projector mode, and lighting condition.
+**Status: initial user hardware results received; acceptance gates remain open.** Synthetic tests do not establish real-world detection accuracy. Record results separately for each phone, laser configuration, projection distance, projector mode, and lighting condition.
 
 ## First physical test session
 
@@ -101,3 +101,33 @@ Test on the actual iPhone and Android browser while the camera is streaming and 
 Use Camera → Range Health & hardware tests for the placement, pulse-count, no-fire and voice checks described in SETUP.md. These controls collect measurements; they do not establish acceptance by themselves. The placement board reports median offsets against the instructed strike positions and includes user aiming error. Compare actual laser strike positions visually or with an independent recording. Pulse count reports count agreement, not true detection recall, because missed pulses and false/duplicate events can cancel numerically. No-fire rates assume the operator fired no pulses, including projector controls. Voice timing begins after recognition, and unheard attempts require manual reporting.
 
 Keep the same phone/laser/projector configuration and describe it in Test setup. Start with five shots at each of nine grid points, then 100 counted pulses, then a 10-minute no-fire observation for each relevant mode. Hold a segmented session or extend its duration to cover observation time. Record incomplete/interrupted tests separately and repeat. Save screenshots or transcribe the browser-held summaries before clearing browser data if you need to compare them elsewhere. The app retains only the latest 12 aggregate reports. Frame-ID synchronization, higher-resolution detection, lens correction and continuous mount-drift detection remain future work.
+
+
+## 2026-09-27 user hardware baseline and pulse-tracking retest
+
+Configuration: iPhone 16, TitanX red laser, room lighting, phone approximately 5 feet from the screen and straight-on. Projected image approximately 44 × 27 inches. Sensitivity 37, Balanced video profile, 600 ms maximum video pulse. Five-shot zero applied before the placement test; actual strikes aimed at the crosshairs. Browser/OS and projector model were not supplied.
+
+| Test | User result before pulse-tracking revision |
+|---|---|
+| Nine-point placement | Completed; 58 samples total. Zero-corrected median radial errors by point: 1.3, 1.1, 1.2, 0.9, 1.2, 1.0, 1.2, 0.7, 0.6 percent of 16:9 frame width. Signed offsets consistently right/up. |
+| Stationary 3D | Exactly 100 emissions; 153 events (51 high-confidence, 102 review). |
+| Moving 3D | Exactly 100 emissions; 149 events (80 high-confidence, 69 review). |
+| 3D no-fire | 0 events in 100.2 seconds. |
+| YouTube no-fire | 16 events in 100.3 seconds (9.6/minute), all review. |
+| YouTube pulses | Exactly 100 emissions; 88 events, all review. Count deficit is not measured recall. |
+| Voice | All commands worked; approximately 2-second perceived delay. |
+| Extended operation | User reports extended session working without calibration loss. |
+
+Video benchmark: first 100 seconds of https://www.youtube.com/watch?v=dalEyyL6zNg. User sometimes observed a second dot above/right of the strike as the laser traveled. This supports investigating repeated detection of continuing pulses; it does not independently prove the cause. The clip could not be retrieved in the development environment, so its real pixels were not used as an automated fixture.
+
+The revision tracks continuing pulses, consolidates tightly fragmented spots, and keeps their onset position. It also allows fading video pulse trails while retaining rejection of rigid translated highlights, checks nearby vacated color at onset, and rejects candidates across video frame gaps. No user threshold, zero formula, or connection/calibration-retention behavior was changed. A newer reference wins only when image-match errors are equal; previous high reference ages are not end-to-end latency measurements.
+
+Retest on the same setup/settings:
+
+1. Recollect the five-shot zero after updating, so old duplicate/trailing samples cannot affect it. Do not move the mount.
+2. Stationary 3D: 20 counted emissions first. Check for one dot and one sound per emission. If clean, repeat the 100-emission stationary and moving tests. Report visible misses and duplicates separately.
+3. Repeat the nine-point placement test after the fresh zero. Further lens/alignment correction is deferred until pulse identity is reliable.
+4. Repeat both no-fire and 100-emission tests on the same first 100 seconds of the video. Keep sensitivity 37, Balanced, and 600 ms. Record candidate/accepted/rejection counters and visible misses/extras; no performance improvement is claimed until this retest.
+5. Optionally enable Faster voice response on the phone. Compare responsiveness and unintended actions with final-only mode, including normal playback audio. Preliminary recognition can change after an action, and the browser may not provide early results.
+
+Live detection remains experimental. The original longer-duration and additional-device acceptance gates still apply; a short clean no-fire run does not certify a zero false-event rate.

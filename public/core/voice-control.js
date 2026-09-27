@@ -1,7 +1,21 @@
 import { parseVoiceCommand } from "./range-command.js";
 export class VoiceControl {
-  constructor({ Recognition, available, runId, command, status }) {
-    Object.assign(this, { Recognition, available, runId, command, status });
+  constructor({
+    Recognition,
+    available,
+    runId,
+    command,
+    status,
+    fast = () => false,
+  }) {
+    Object.assign(this, {
+      Recognition,
+      available,
+      runId,
+      command,
+      status,
+      fast,
+    });
     this.enabled = false;
     this.lastCommand = -Infinity;
     this.shortEnds = 0;
@@ -38,7 +52,7 @@ export class VoiceControl {
     const current = () => this.enabled && this.recognition === r;
     r.lang = "en-US";
     r.continuous = true;
-    r.interimResults = false;
+    r.interimResults = this.fast();
     r.maxAlternatives = 1;
     this.status("Starting microphone…", true);
     const began = Date.now();
@@ -55,24 +69,52 @@ export class VoiceControl {
         this.status("Listening · Moving / Cover / Retrograde", true);
       }
     };
+    let tentative = null;
+    const cancelTentative = () => {
+      clearTimeout(this.tentativeTimer);
+      tentative = null;
+    };
+    const emit = (command, index) => {
+      const now = Date.now();
+      if (
+        !current() ||
+        !this.available() ||
+        run !== this.runId() ||
+        seen.has(index) ||
+        (speechEnded && now - speechEnded > 3000) ||
+        now - this.lastCommand < 1200
+      )
+        return;
+      seen.add(index);
+      this.lastCommand = now;
+      this.shortEnds = 0;
+      this.command(command, run);
+    };
     r.onresult = (e) => {
       if (!current() || !this.available() || run !== this.runId()) return;
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const result = e.results[i];
-        if (!result.isFinal || seen.has(i)) continue;
-        seen.add(i);
-        const command = parseVoiceCommand(result[0].transcript),
-          now = Date.now();
-        if (
-          !command ||
-          (speechEnded && now - speechEnded > 3000) ||
-          now - this.lastCommand < 1200
-        )
+        if (seen.has(i)) continue;
+        const command = parseVoiceCommand(result[0].transcript);
+        if (result.isFinal) {
+          cancelTentative();
+          if (command) emit(command, i);
+          seen.add(i);
+          break;
+        }
+        if (!this.fast() || !command) {
+          cancelTentative();
           continue;
-        this.lastCommand = now;
-        this.shortEnds = 0;
-        this.command(command, run);
-        break; // Never execute multiple commands from one recognition callback.
+        }
+        if (tentative?.index === i && tentative.command === command) continue;
+        cancelTentative();
+        tentative = { index: i, command };
+        // Opt-in: act on an exact preliminary command unchanged for 250 ms.
+        // A final revision cannot undo it, so keep final-only as the default.
+        this.tentativeTimer = setTimeout(() => {
+          if (this.fast()) emit(command, i);
+          tentative = null;
+        }, 250);
       }
     };
     r.onerror = (e) => {
@@ -85,6 +127,7 @@ export class VoiceControl {
     };
     r.onend = () => {
       if (!current()) return;
+      cancelTentative();
       clearTimeout(this.deadline);
       if (Date.now() - began < 1500) this.shortEnds++;
       else this.shortEnds = 0;
@@ -109,6 +152,7 @@ export class VoiceControl {
   }
   resetRun() {
     if (!this.enabled) return;
+    clearTimeout(this.tentativeTimer);
     const old = this.recognition;
     this.recognition = null;
     clearTimeout(this.deadline);
@@ -123,6 +167,7 @@ export class VoiceControl {
     this.enabled = false;
     clearTimeout(this.retry);
     clearTimeout(this.deadline);
+    clearTimeout(this.tentativeTimer);
     const old = this.recognition;
     this.recognition = null;
     try {

@@ -124,9 +124,11 @@ export function installHealthPanel({ root, state, placement, zero, clock }) {
     try {
       localStorage.setItem("laser-range.hardware.v1", JSON.stringify(records));
     } catch {
-      storageWarning = " Browser storage is unavailable; this result will not survive a reload.";
+      storageWarning =
+        " Browser storage is unavailable; this result will not survive a reload.";
     }
-    $("testProgress").textContent = `${report.status}. Results below.${storageWarning}`;
+    $("testProgress").textContent =
+      `${report.status}. Results below.${storageWarning}`;
     results();
     controls();
   }
@@ -235,6 +237,10 @@ export function installHealthPanel({ root, state, placement, zero, clock }) {
           [
             "Live detections / pulse check",
             `${latest.detections} / ${latest.tests}`,
+          ],
+          [
+            "Continuation / fragment candidates suppressed",
+            `${latest.suppressed ?? 0}`,
           ],
           ["Camera frame", `${latest.width || "—"} × ${latest.height || "—"}`],
           [

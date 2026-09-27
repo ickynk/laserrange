@@ -1,3 +1,4 @@
+import { followPulse } from "./pulse-track.js";
 // Pure image-processing core. RGB values are 0–255; coordinates are normalized.
 export function chroma(data, i, color) {
   return color === "green"
@@ -16,6 +17,9 @@ export class LaserDetector {
   reset() {
     this.previous = null;
     this.lastShot = -Infinity;
+    this.tracks = [];
+    this.lastFrame = null;
+    this.suppressed = 0;
     this.background = null;
     this.gain = 1;
     this.offset = 0;
@@ -38,6 +42,8 @@ export class LaserDetector {
       Math.min(160, (values[Math.floor(values.length * 0.999)] || 0) + 12),
     );
     this.previous = null;
+    this.tracks = [];
+    this.lastFrame = null;
     return this.threshold;
   }
   // Keep automatically measured sensitivity within the threshold proven by
@@ -45,6 +51,8 @@ export class LaserDetector {
   adapt(frames, validatedThreshold) {
     if (frames.length < 10) throw Error("Not enough adaptation frames.");
     // Scene motion is not sensor noise. Keep the user's qualified threshold.
+    this.tracks = [];
+    this.lastFrame = null;
     this.threshold = validatedThreshold;
     this.previous = new Uint8ClampedArray(frames.at(-1));
     return this.threshold;
@@ -93,10 +101,41 @@ export class LaserDetector {
   }
   detect(frame, reference, time, { temporalOnly = false } = {}) {
     const { width: w, height: h } = this;
-    if (!this.previous) {
+    if (
+      !this.previous ||
+      (this.lastFrame !== null && time - this.lastFrame > 750)
+    ) {
+      this.tracks = [];
+      this.lastFrame = time;
       this.previous = new Uint8ClampedArray(frame);
       return [];
     }
+    this.lastFrame = time;
+    const before = this.previous;
+    const radius = Math.max(4, w * 0.025);
+    this.tracks = this.tracks.filter((t) => {
+      if (t.absent !== null && time - t.absent >= 35) return false;
+      const spot = followPulse(
+        frame,
+        t.before,
+        t,
+        w,
+        h,
+        this.color,
+        this.threshold,
+        radius,
+        {
+          reference: temporalOnly ? null : reference,
+          gain: this.gain,
+          offset: this.offset,
+        },
+      );
+      if (spot) {
+        Object.assign(t, spot);
+        t.absent = null;
+      } else t.absent ??= time;
+      return true;
+    });
     const mask = new Uint8Array(w * h),
       selected = this.color === "red" ? 0 : 1;
     for (let y = 2; y < h - 2; y++)
@@ -122,7 +161,7 @@ export class LaserDetector {
         }
         mask[p] = 1;
       }
-    this.previous.set(frame);
+
     const components = [];
     for (let p = 0; p < mask.length; p++)
       if (mask[p]) {
@@ -172,11 +211,48 @@ export class LaserDetector {
             pixels: count,
           });
       }
-    if (time - this.lastShot < 100) return [];
+    // Camera sampling can split one tiny spot into several disconnected islands.
+    // Consolidate only a tight footprint; widely separated simultaneous blobs
+    // remain separate review events. Anchor to the largest island, not its tail.
+    const islands = components.sort((a, b) => b.pixels - a.pixels);
+    const grouped = [];
+    for (const p of islands) {
+      const neighbor = grouped.find(
+        (q) =>
+          Math.hypot((q.x - p.x) * (w - 1), (q.y - p.y) * (h - 1)) <=
+          Math.max(2, w * 0.015),
+      );
+      if (neighbor) neighbor.pixels += p.pixels;
+      else grouped.push({ ...p });
+    }
+    this.suppressed += components.length - grouped.length;
+    const fresh = grouped.filter((p) => {
+      if (p.pixels > Math.max(50, w * h * 0.0015)) return false;
+      const x = p.x * (w - 1),
+        y = p.y * (h - 1);
+      if (this.tracks.some((t) => Math.hypot(t.x - x, t.y - y) <= radius)) {
+        this.suppressed++;
+        return false;
+      }
+      return true;
+    });
+    // Snapshot once, shared by this frame's bounded tracks. Never refresh the
+    // baseline while the laser is lit, which would turn its tail into a new shot.
+    if (fresh.length && this.tracks.length < 8) {
+      const baseline = new Uint8ClampedArray(before);
+      for (const p of fresh.slice(0, 8 - this.tracks.length))
+        this.tracks.push({
+          x: p.x * (w - 1),
+          y: p.y * (h - 1),
+          before: baseline,
+          absent: null,
+        });
+    }
+    this.previous.set(frame);
     // Ambiguous simultaneous blobs stay review-only; never arbitrarily choose a shooter.
-    if (components.length) {
+    if (fresh.length) {
       this.lastShot = time;
-      return components.map((p) => ({
+      return fresh.map((p) => ({
         ...p,
         confidence:
           !temporalOnly && reference && components.length === 1
@@ -204,7 +280,11 @@ export function chooseReference(camera, history, time, maxAge = 400) {
       );
       n++;
     }
-    if (n && error / n < bestError) {
+    if (
+      n &&
+      (error / n < bestError ||
+        (error / n === bestError && (!best || ref.time > best.time)))
+    ) {
       bestError = error / n;
       best = ref;
     }

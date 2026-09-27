@@ -20,8 +20,12 @@ const fakeSpeech = () => {
     window.recognizer.onresult({ resultIndex: index, results });
   };
 };
-for (const separate of [false, true])
-  test(`Phone voice navigation and reload (${separate ? "projector" : "single"})`, async ({
+for (const { separate, fast } of [
+  { separate: false, fast: false },
+  { separate: true, fast: false },
+  { separate: true, fast: true },
+])
+  test(`Phone voice navigation and reload (${separate ? "projector" : "single"}${fast ? " fast" : ""})`, async ({
     page,
     context,
   }) => {
@@ -65,6 +69,7 @@ for (const separate of [false, true])
       await phone.locator("#connect").click();
       await expect(phone.locator("#phoneNotice")).toContainText("Connected");
       await phone.locator("#voiceOptions > summary").click();
+      if (fast) await phone.locator("#fastVoice").check();
       await phone.locator("#enableVoice").click();
       await expect(phone.locator("#voiceStatus")).toContainText("Listening");
       await page.locator("#startRun").click();
@@ -76,7 +81,7 @@ for (const separate of [false, true])
       await surface.click({ position: { x: 35, y: 35 } });
       await surface.click({ position: { x: 35, y: 35 } });
       await expect(display.locator("#ammoDisplay")).toHaveText("Reload");
-      await phone.evaluate(() => window.say("Cover!"));
+      await phone.evaluate((fast) => window.say("Cover!", 0, !fast), fast);
       await expect(phone.locator("#voiceResult")).toHaveText(
         "Magazine reloaded.",
       );

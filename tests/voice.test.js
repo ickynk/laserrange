@@ -104,3 +104,64 @@ test("Speech lifecycle ignores interim/duplicate/stale-run results and stops on 
   latest.onresult({ resultIndex: 2, results: [result, result, result] });
   assert.equal(calls.length, 1);
 });
+
+test("Faster voice waits for stable exact text, cancels revisions, deduplicates finals and stops stale timers", async () => {
+  let latest,
+    run = 1;
+  const calls = [];
+  class Fake {
+    constructor() {
+      latest = this;
+    }
+    start() {
+      this.onstart();
+    }
+    abort() {
+      this.onend?.();
+    }
+  }
+  const voice = new VoiceControl({
+    Recognition: Fake,
+    available: () => true,
+    runId: () => run,
+    command: (...args) => calls.push(args),
+    status: () => {},
+    fast: () => true,
+  });
+  const result = (text, final = false) => {
+    const r = [{ transcript: text }];
+    r.isFinal = final;
+    return r;
+  };
+  const emit = (text, final = false) =>
+    latest.onresult({ resultIndex: 0, results: [result(text, final)] });
+  const wait = () => new Promise((r) => setTimeout(r, 290));
+  try {
+    voice.start();
+    assert.equal(latest.interimResults, true);
+    emit("cover");
+    emit("cover me");
+    await wait();
+    assert.equal(calls.length, 0);
+    emit("moving");
+    await wait();
+    assert.deepEqual(calls, [["moving", 1]]);
+    emit("moving", true);
+    assert.equal(calls.length, 1);
+    voice.stop();
+    voice.start();
+    voice.lastCommand = -Infinity;
+    emit("cover");
+    run = 2;
+    await wait();
+    assert.equal(calls.length, 1);
+    voice.stop();
+    voice.start();
+    emit("retrograde");
+    voice.stop();
+    await wait();
+    assert.equal(calls.length, 1);
+  } finally {
+    voice.stop();
+  }
+});

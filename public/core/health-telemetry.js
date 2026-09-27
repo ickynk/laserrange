@@ -9,6 +9,7 @@ export function sanitizeHealth(m) {
     "frame gap",
     "pulse too long",
     "movement",
+    "moving background",
     "candidate limit",
     "unstable onset",
   ]) {
@@ -29,6 +30,7 @@ export function sanitizeHealth(m) {
     threshold: number(m.threshold, 0, 1000),
     brightPercent: number(m.brightPercent, 0, 100),
     darkPercent: number(m.darkPercent, 0, 100),
+    suppressed: number(m.suppressed, 0, 1e9),
     candidates: number(m.candidates, 0, 1e9),
     confirmed: number(m.confirmed, 0, 1e9),
     alignment,

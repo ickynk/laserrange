@@ -70,3 +70,12 @@ Completed in editor/pairing/audio revision:
 - Optional magazine count, Reload prompt and one dry-trigger assumed reload.
 
 - Optional paired-phone voice commands: Moving / Cover / Retrograde, with explicit microphone opt-in, command feedback and retained laser/manual controls. Real-device speech accuracy and microphone/camera coexistence remain hardware acceptance items.
+
+
+### Hardware-feedback revision — awaiting physical retest
+
+- Continuing/moving pulse tracking and tight-fragment consolidation; first-impact coordinates shared by qualification, zero and sessions.
+- Fading-trail handling, moving-background onset rejection and frame-gap protection for video.
+- Newest-frame tie-breaking for equally good source references.
+- Optional faster preliminary voice recognition; final-only remains default.
+- User baseline and targeted retest recorded in HARDWARE-VALIDATION.md. Stationary/moving overcount, video recall/false events and residual placement bias remain open until retested. Extended-session calibration retention and functional voice commands are user-reported successes for this setup.
