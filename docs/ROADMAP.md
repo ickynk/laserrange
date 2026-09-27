@@ -60,3 +60,5 @@ Completed in editor/pairing/audio revision:
 - Retryable rate-limit cooldown and reduced redundant pairing status traffic.
 - Local synthesized shot/dry-click audio with independent mute/volume.
 - Optional magazine count, Reload prompt and one dry-trigger assumed reload.
+
+- Optional paired-phone voice commands: Moving / Cover / Retrograde, with explicit microphone opt-in, command feedback and retained laser/manual controls. Real-device speech accuracy and microphone/camera coexistence remain hardware acceptance items.

@@ -4,6 +4,10 @@ export class Magazine {
     this.capacity = settings.magazineSize ?? 15;
     this.remaining = this.capacity;
   }
+  reload() {
+    this.remaining = this.capacity;
+    return this.state();
+  }
   trigger() {
     const fired = !this.enabled || this.remaining > 0;
     if (this.enabled)

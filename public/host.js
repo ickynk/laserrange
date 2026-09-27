@@ -1,3 +1,4 @@
+import { applyRangeCommand } from "./core/range-command.js";
 import { Magazine, showMagazine } from "./core/magazine.js";
 import { SegmentClock } from "./core/segment-clock.js";
 import { openTargetCrop } from "./core/image-crop.js";
@@ -1125,6 +1126,41 @@ function acceptShot(shot) {
     marker.remove();
   }
 }
+function sendVoiceState() {
+  channel?.send({ type: "voice-state", runId: running ? started : null });
+}
+function voiceResult(id, result) {
+  channel?.send({ type: "voice-result", id, message: result.message });
+  if (result.magazine) showMagazine($("ammoDisplay"), result.magazine, running);
+}
+function handleVoice(m) {
+  if (
+    !phoneConnected ||
+    !running ||
+    calibrating ||
+    zeroSession ||
+    m.runId !== started ||
+    now() < started ||
+    now() - m.time > 2000
+  )
+    return voiceResult(m.id, {
+      message:
+        "Voice command ignored: start an active session after calibration/countdown.",
+    });
+  if (projection?.connected)
+    projection.send({
+      type: "voice-command",
+      runId: started,
+      id: m.id,
+      command: m.command,
+      time: m.time,
+    });
+  else
+    voiceResult(
+      m.id,
+      applyRangeCommand(m.command, { magazine, timeline, time: now() }),
+    );
+}
 function startRun() {
   if (running) return;
   if (projection?.opening || (projection?.connected && !projection.ready))
@@ -1143,6 +1179,7 @@ function startRun() {
   }
   running = true;
   started = now() + (scenario.session?.countdown || 0) * 1000;
+  sendVoiceState();
   timeline = new SegmentClock(scenario, started, mode);
   magazine = new Magazine(scenario.session);
   showMagazine($("ammoDisplay"), magazine.state(), true);
@@ -1218,6 +1255,7 @@ function stopRun() {
   const wasRunning = running;
   const startedScoring = running && now() >= started;
   running = false;
+  sendVoiceState();
   sessionAudio.cancel();
   shotAudio.cancel();
   $("ammoDisplay").hidden = true;
@@ -1375,6 +1413,7 @@ async function connectHost(explicitToken) {
     channel = new Channel({ role: "host", token: data.token });
     channel
       .on("joined", (m) => {
+        sendVoiceState();
         notice(
           m.reconnected
             ? "Connection restored. Camera alignment retained; wait for sensitivity to settle, then start a new session."
@@ -1397,6 +1436,7 @@ async function connectHost(explicitToken) {
         const newlyConnected = m.connected && !phoneConnected;
         const newlyArmed = m.ready && !phoneReady;
         phoneConnected = m.connected;
+        if (newlyConnected) sendVoiceState();
         phoneReady = m.ready;
         if (!m.ready) {
           phoneAdjusting = false;
@@ -1427,6 +1467,7 @@ async function connectHost(explicitToken) {
         if (!m.ready && running && !runDemo) stopRun();
         sendControlState();
       })
+      .on("voice-command", handleVoice)
       .on("alignment-changed", clearAllZeros)
       .on("zero-request", (m) => zeroAction(m.action))
       .on("calibration-request", (m) => {
@@ -1679,6 +1720,8 @@ async function simulatorAction(m) {
   }
 }
 function onProjectionMessage(m) {
+  if (m.type === "voice-result" && running && m.runId === started)
+    voiceResult(m.id, m.result);
   if (m.type === "simulator-action") simulatorAction(m);
   if (m.type === "connected") {
     invalidateProjection(

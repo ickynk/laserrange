@@ -1,3 +1,4 @@
+import { applyRangeCommand } from "./core/range-command.js";
 import { Magazine, showMagazine } from "./core/magazine.js";
 import { SegmentClock } from "./core/segment-clock.js";
 import { ProjectorControls, CONTROL_TOP } from "./core/projector-controls.js";
@@ -218,6 +219,36 @@ async function handle(m) {
     case "range-list":
       controls.setItems(m.items || [], m.error || "");
       break;
+    case "voice-command": {
+      if (
+        !running ||
+        calibrating ||
+        offline ||
+        m.runId !== runId ||
+        now() < started ||
+        now() - m.time > 2000
+      ) {
+        send({
+          type: "voice-result",
+          runId: m.runId,
+          id: m.id,
+          result: {
+            message:
+              "Voice command ignored: projector not in an active session.",
+          },
+        });
+        break;
+      }
+      const result = applyRangeCommand(m.command, {
+        magazine,
+        timeline,
+        time: now(),
+      });
+      if (result.magazine)
+        showMagazine($("ammoDisplay"), result.magazine, true);
+      send({ type: "voice-result", runId, id: m.id, result });
+      break;
+    }
     case "segment":
       if (running && m.runId === runId) timeline.step(m.direction, now());
       break;

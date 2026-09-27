@@ -25,6 +25,23 @@
             placeholder="6 digits" /></label
         ><button id="connect" class="primary">Connect</button>
       </div>
+      <details id="voiceOptions">
+        <summary>Voice range controls</summary>
+        <p>
+          Moving → next segment · Cover → reload magazine · Retrograde →
+          previous segment.
+        </p>
+        <p class="hint">
+          Optional microphone access. Your browser may send audio to its speech
+          service and require internet. Laser Range does not record or store
+          audio. Say one command at a time; video dialogue can also trigger
+          commands. Keep this page visible.
+        </p>
+        <button id="enableVoice">Enable microphone &amp; voice</button>
+        <button id="disableVoice" disabled>Stop voice</button>
+        <p id="voiceStatus" role="status">Voice controls off.</p>
+        <p id="voiceResult" role="status"></p>
+      </details>
       <button id="startCamera">Enable rear camera</button
       ><label
         >Camera<select id="cameraSelect">

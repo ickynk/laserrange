@@ -5,8 +5,8 @@ Version 0.1.0, hardware-validation alpha.
 | Check | Result |
 |---|---|
 | JavaScript syntax (`npm run check`) | Passed |
-| Node unit/integration suite (`npm test`) | 41 passed, 0 failed |
-| Playwright browser suite | 34 passed, 0 failed in one full run; saved-library layout regression also passed after the final markup adjustment |
+| Node unit/integration suite (`npm test`) | 44 passed, 0 failed |
+| Playwright browser suite | Voice revision: 9 focused tests passed; previous revision: 34-test full suite passed. Voice tests also rerun after final error-handling changes. |
 | Rendered desktop interface | Screenshot inspected |
 | Physical iPhone / Android camera | User reports working auto-alignment and horizontal placement; successful screen-zero correction; connection-recovery hardware retest pending |
 | TitanX / DryFireMag-associated laser | User hardware feedback received; device-specific accuracy unverified |
@@ -56,3 +56,6 @@ In the previous segment-controls revision, the 30-test browser run passed 29 tes
 
 
 Editor/pairing/audio revision: the full 34-test browser suite passed without retries, including both complete synthetic-camera flows. New browser coverage verifies independent editor scrolling, alternating movement/focus placement and saved schema, the QR-encoded URL with prefilled code, forced WebSocket rate limiting followed by automatic same-code recovery, magazine depletion/dry trigger/refill/reset in both display modes, distinct audio playback and mute behavior. Unit coverage tests magazine boundaries, disabled unlimited mode, invalid settings, distinct audio buffers, blocked-audio dropping and cancellation. Desktop and mobile layouts plus the Reload banner were inspected. The saved-range controls received a final full-width layout adjustment and their crop/focus/library regression was rerun successfully. Physical QR reliability, real laser/audio latency and perceived sound realism remain unmeasured. The original hardware rate-limit burst source was not reproduced; the verified fix is automatic recovery plus less redundant status traffic.
+
+
+Phone voice revision: unit tests cover exact command matching, partial-magazine refill, held-segment constraints, original dry-trigger refill, interim/duplicate/old-session recognition rejection and permission denial. A real WebSocket protocol test rejects stale/malformed/unknown commands and verifies only command metadata reaches the paired host. Browser tests use a mocked speech recognizer with the actual phone/server/operator/projector path to verify Cover, Moving, Retrograde, confirmations, duplicate-result rejection, Stop voice, unsupported-browser messaging and retained dry-click behavior. The focused nine-test run also covers previous laser segment controls, saved-range loading, ammo/audio and pairing recovery. All passed; the three voice tests passed again after the final initialization/timeout handling changes. No real microphone transcription or simultaneous camera/microphone behavior is validated by the mocked recognizer. Physical speech latency, service availability, speaker/video cross-triggering and iPhone/Android audio capture still require testing.

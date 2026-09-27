@@ -26,6 +26,7 @@ No build step, database, paid service, or native mobile app is needed. Dependenc
 - Configurable scoring zones, target repeats/easing, camera speed/height/FOV and per-segment focus points with smooth view transitions.
 - Collapsible editor groups, independent desktop scrolling and alternating camera node/focus placement.
 - Synthesized gunshot/dry-click audio and an optional magazine counter with Reload prompt and assumed reload.
+- Optional phone voice commands: Moving (next segment), Cover (reload), Retrograde (previous segment); browser support/internet requirements vary.
 - Optional segment holds with shooter-operated Next/Previous; projector laser/click controls for Start, Restart, saved ranges and End.
 - Scenario quick-save in browser storage, persistent host range/video-link folders, and versioned JSON import/export including custom target images.
 - Host pairing link/QR code, six-digit phone pairing, role isolation, origin checks, limited connection attempts, and automatic cooldown/recovery after temporary message rate limits.

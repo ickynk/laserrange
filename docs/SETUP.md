@@ -214,3 +214,17 @@ Enable **Magazine counter** and choose **Rounds per magazine** (1–200). Each a
 ### Pairing rate-limit recovery
 
 A temporary WebSocket rate-limit response now waits five seconds and reconnects automatically with the same credentials. You should not need to refresh or type the code again for this condition. Invalid/expired credentials and an already-connected different phone still produce a pairing error. QR scanning opens the prefilled phone link; select Connect, then enable the camera. Redundant readiness messages are suppressed; message-rate and authentication protections remain enabled.
+
+### Optional phone voice controls
+
+On the paired phone, expand **Voice range controls** and tap **Enable microphone & voice**. Allow microphone/speech access if the browser asks. Keep the phone page visible. The listening status and command confirmation appear on the phone.
+
+- Say **Moving** to travel to the next camera endpoint.
+- Say **Cover!** to refill the current magazine, including a partly used one. This consumes no shot and plays no gunshot/dry click.
+- Say **Retrograde** to travel to the previous endpoint.
+
+Path commands require camera movement and **Pause at camera segment ends**. They work at held endpoints; they do not interrupt a moving segment or seek videos. Cover works during 3D/video sessions when the magazine counter is enabled. Commands do not start sessions, skip countdowns, or operate during calibration. Use one command word at a time. Voice does not identify the speaker, so video dialogue or another person saying these words can trigger it; turn it off when needed. All laser/pointer/operator controls and the empty-magazine dry-click refill remain available.
+
+Voice is opt-in each page visit. Listening restarts after normal speech-service endings, but stops on denied permission, service/network errors, phone backgrounding, or connection loss. Tap Enable again after resolving the issue. Duplicate, stale and old-session results are discarded; unconfirmed requests time out instead of replaying later.
+
+This uses browser speech recognition (`SpeechRecognition` / `webkitSpeechRecognition`), whose availability varies by browser/device. The browser may send microphone audio to its speech provider and require internet even though the range uses the LAN. Laser Range sends only the recognized command over the paired connection and does not record/store microphone audio. No cloud API key is needed. Unsupported browsers show a message and retain the existing controls. Actual iPhone/Android recognition, camera/microphone coexistence and noise performance need hardware testing. See [MDN SpeechRecognition](https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition).

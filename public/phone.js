@@ -1,3 +1,4 @@
+import { VoiceControl } from "./core/voice-control.js";
 import { VideoPulseFilter } from "./core/video-filter.js";
 import {
   detectCalibration,
@@ -59,6 +60,59 @@ let channel,
   patternActive = false,
   autoRequested = false,
   patternTimer;
+let voiceRunId = null,
+  pendingVoice = null,
+  voiceReplyTimer;
+const voice = new VoiceControl({
+  Recognition: window.SpeechRecognition || window.webkitSpeechRecognition,
+  available: () => connected && !document.hidden,
+  runId: () => voiceRunId,
+  command: (command, runId) => {
+    if (!runId) {
+      $("voiceResult").textContent = "Start a session first.";
+      return;
+    }
+    clearTimeout(voiceReplyTimer);
+    pendingVoice = crypto.randomUUID();
+    const id = pendingVoice;
+    voiceReplyTimer = setTimeout(() => {
+      if (pendingVoice === id) {
+        pendingVoice = null;
+        $("voiceResult").textContent =
+          "Command not confirmed. Check the range before repeating.";
+      }
+    }, 3500);
+    channel.send({
+      type: "voice-command",
+      command,
+      runId,
+      id: pendingVoice,
+      time: channel.now(),
+    });
+    $("voiceResult").textContent = `Heard ${command} · waiting for range…`;
+  },
+  status: (message, enabled) => {
+    $("voiceStatus").textContent = voice.Recognition
+      ? message
+      : "Speech recognition unavailable in this browser. Existing range controls still work.";
+    $("enableVoice").disabled = enabled || !voice.Recognition;
+    $("disableVoice").disabled = !enabled;
+  },
+});
+$("enableVoice").onclick = () => voice.start();
+$("disableVoice").onclick = () => voice.stop();
+if (!voice.Recognition) {
+  $("enableVoice").disabled = true;
+  $("voiceStatus").textContent =
+    "Speech recognition unavailable in this browser. Existing range controls still work.";
+}
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden)
+    voice.stop(
+      "Voice stopped while phone is in the background. Enable again when ready.",
+    );
+});
+window.addEventListener("pagehide", () => voice.stop());
 $("code").value = new URLSearchParams(location.hash.slice(1)).get("code") || "";
 history.replaceState(null, "", location.pathname);
 function ready(value) {
@@ -105,6 +159,9 @@ function refreshSensitivity() {
   );
 }
 $("connect").onclick = () => {
+  voice.stop();
+  voiceRunId = null;
+  pendingVoice = null;
   if (channel) channel.close();
   connected = false;
   invalidate();
@@ -120,6 +177,9 @@ $("connect").onclick = () => {
       else notify("Connected. Enable camera and align the projected frame.");
     })
     .on("reconnecting", () => {
+      voice.stop("Connection lost. Enable voice again after reconnecting.");
+      voiceRunId = null;
+      pendingVoice = null;
       connected = false;
       pauseDetection(
         "Network interrupted. Reconnecting automatically; alignment retained.",
@@ -128,6 +188,20 @@ $("connect").onclick = () => {
     .on("host-online", () => {
       connected = true;
       restoreConnection();
+    })
+    .on("voice-state", (m) => {
+      if (voiceRunId !== m.runId) {
+        voiceRunId = m.runId;
+        pendingVoice = null;
+        voice.resetRun();
+      }
+    })
+    .on("voice-result", (m) => {
+      if (m.id === pendingVoice) {
+        clearTimeout(voiceReplyTimer);
+        $("voiceResult").textContent = m.message;
+        pendingVoice = null;
+      }
     })
     .on("zero-status", (m) => {
       $("zeroStatus").textContent = m.message;
@@ -163,10 +237,13 @@ $("connect").onclick = () => {
       else invalidate("Display source changed. Align the new projected frame.");
     })
     .on("closed", (m) => {
+      voice.stop("Connection closed. Reconnect before enabling voice.");
       connected = false;
       invalidate(m);
     })
     .on("host-offline", () => {
+      voice.stop("Host disconnected. Enable voice again after reconnecting.");
+      voiceRunId = null;
       connected = false;
       pauseDetection("Host reconnecting. Alignment retained; hold fire.");
     })

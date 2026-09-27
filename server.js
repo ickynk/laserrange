@@ -46,7 +46,7 @@ export function createRangeServer({
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("Referrer-Policy", "no-referrer");
     res.setHeader("Cache-Control", "no-store");
-    res.setHeader("Permissions-Policy", "camera=(self), microphone=()");
+    res.setHeader("Permissions-Policy", "camera=(self), microphone=(self)");
     res.setHeader(
       "Content-Security-Policy",
       "default-src 'self'; script-src 'self' https://www.youtube.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' ws: wss:; frame-src https://www.youtube.com https://www.youtube-nocookie.com; frame-ancestors 'none'",
@@ -147,7 +147,8 @@ export function createRangeServer({
     let session,
       role,
       tokens = 200,
-      windowStart = Date.now();
+      windowStart = Date.now(),
+      lastVoice = 0;
     const deadline = setTimeout(() => {
       if (!session) ws.close(1008, "Pairing timeout");
     }, 10000);
@@ -231,9 +232,15 @@ export function createRangeServer({
         });
       if (role === "host") {
         if (
-          ["reference", "mode", "pattern", "reset", "zero-status"].includes(
-            m.type,
-          )
+          [
+            "reference",
+            "mode",
+            "pattern",
+            "reset",
+            "zero-status",
+            "voice-state",
+            "voice-result",
+          ].includes(m.type)
         ) {
           if (
             m.type === "reference" &&
@@ -246,6 +253,27 @@ export function createRangeServer({
           send(session.phone, m);
         }
       } else {
+        if (m.type === "voice-command") {
+          if (
+            !["moving", "cover", "retrograde"].includes(m.command) ||
+            typeof m.id !== "string" ||
+            m.id.length > 80 ||
+            !Number.isFinite(m.time) ||
+            Math.abs(Date.now() - m.time) > 2000 ||
+            !(m.runId === null || Number.isFinite(m.runId)) ||
+            Date.now() - lastVoice < 1000
+          )
+            return;
+          lastVoice = Date.now();
+          send(session.host, {
+            type: "voice-command",
+            command: m.command,
+            id: m.id,
+            time: m.time,
+            runId: m.runId,
+          });
+          return;
+        }
         if (
           m.type === "zero-request" &&
           ["start", "apply", "cancel", "clear"].includes(m.action)
