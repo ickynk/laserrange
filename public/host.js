@@ -1,3 +1,5 @@
+import { installHealthPanel } from "./core/health-panel.js";
+import { drawTestPoint } from "./core/range-health.js";
 import { applyRangeCommand } from "./core/range-command.js";
 import { Magazine, showMagazine } from "./core/magazine.js";
 import { SegmentClock } from "./core/segment-clock.js";
@@ -81,6 +83,7 @@ let selectedZone = 0,
   mediaStarted = false;
 const shooterZeros = new Map();
 let zeroSession = null,
+  diagnosticPoint = null,
   zeroPattern = false,
   runZero = null;
 let projection,
@@ -99,6 +102,43 @@ reference.width = 480;
 reference.height = 270;
 const refctx = reference.getContext("2d", { willReadFrequently: true });
 const now = () => channel?.now() ?? Date.now();
+const health = installHealthPanel({
+  root: $("rangeHealth"),
+  clock: now,
+  state: () => ({
+    connected: phoneConnected,
+    ready: phoneReady,
+    adjusting: phoneAdjusting,
+    mode,
+    running,
+    demo: runDemo,
+    countdown: running && now() < started,
+    calibrating,
+    scenario: scenario.name,
+    segmented: !!timeline?.enabled,
+    ammo: magazine.enabled,
+    config: {
+      latencyMs: runLatency,
+      zero: running ? runZero : shooterZeros.get(zeroShooter()) || null,
+      shooter: running ? runShooter : zeroShooter(),
+    },
+  }),
+  zero: (m, offset) => applyZero(m, offset),
+  placement: (point) => {
+    diagnosticPoint = point;
+    calibrating = point !== null;
+    zeroPattern = false;
+    $("calibration").hidden = !calibrating;
+    $("stopCalibration").hidden = !calibrating;
+    if (calibrating) calibrationPattern();
+    projection?.send({
+      type: "calibration",
+      active: calibrating,
+      diagnosticPoint: point,
+    });
+    channel?.send({ type: "pattern", active: calibrating });
+  },
+});
 const stamp = (seconds) =>
   `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${(seconds % 60).toFixed(2).padStart(5, "0")}`;
 const object = () =>
@@ -648,6 +688,7 @@ $("importScenario").onchange = async (e) => {
   e.target.value = "";
 };
 function setMode(next) {
+  health.interrupt("Display mode changed during test.");
   if (running) stopRun();
   mode = next;
   updateShotInput();
@@ -797,9 +838,13 @@ $("stage").addEventListener("pointerdown", (e) => {
     recordShot({ ...point(e), time: now(), confidence: "review" }, true);
 });
 function calibrationPattern() {
+  if (diagnosticPoint !== null)
+    return drawTestPoint($("calibration"), diagnosticPoint);
   (zeroPattern ? drawZero : drawCalibration)($("calibration"));
 }
 $("calibrate").onclick = () => {
+  diagnosticPoint = null;
+  health.interrupt("Calibration opened during test.", false);
   cancelZero();
   zeroPattern = false;
   if (running) stopRun();
@@ -811,6 +856,7 @@ $("calibrate").onclick = () => {
   channel?.send({ type: "pattern", active: true });
 };
 $("stopCalibration").onclick = () => {
+  health.interrupt("Placement display closed before finishing.");
   cancelZero();
   zeroPattern = false;
   calibrating = false;
@@ -866,6 +912,8 @@ function clearAllZeros() {
   cancelZero();
 }
 function zeroAction(action) {
+  if (health.placementActive)
+    return notice("Finish the placement test before changing screen zero.");
   if (action === "cancel") return cancelZero();
   if (running)
     return updateZeroStatus(
@@ -1130,10 +1178,12 @@ function sendVoiceState() {
   channel?.send({ type: "voice-state", runId: running ? started : null });
 }
 function voiceResult(id, result) {
+  health.voiceResult(id, result);
   channel?.send({ type: "voice-result", id, message: result.message });
   if (result.magazine) showMagazine($("ammoDisplay"), result.magazine, running);
 }
 function handleVoice(m) {
+  health.voice(m);
   if (
     !phoneConnected ||
     !running ||
@@ -1252,6 +1302,8 @@ function beginRunMedia() {
   if (mode === "youtube") youtubePlayer?.playVideo?.();
 }
 function stopRun() {
+  if (!health.placementActive)
+    health.interrupt("Session ended before test was finished.");
   const wasRunning = running;
   const startedScoring = running && now() >= started;
   running = false;
@@ -1423,6 +1475,7 @@ async function connectHost(explicitToken) {
         channel.send({ type: "pattern", active: calibrating });
       })
       .on("reconnecting", () => {
+        health.interrupt("Network connection interrupted.");
         phoneReady = false;
         phoneConnected = false;
         cancelZero();
@@ -1468,7 +1521,10 @@ async function connectHost(explicitToken) {
         sendControlState();
       })
       .on("voice-command", handleVoice)
-      .on("alignment-changed", clearAllZeros)
+      .on("alignment-changed", () => {
+        health.interrupt("Screen alignment changed during test.");
+        clearAllZeros();
+      })
       .on("zero-request", (m) => zeroAction(m.action))
       .on("calibration-request", (m) => {
         $(m.active ? "calibrate" : "stopCalibration").click();
@@ -1482,13 +1538,15 @@ async function connectHost(explicitToken) {
             ? "Camera adjusting · hold fire"
             : "Camera calibrated";
       })
-      .on("shot", (m) => (zeroSession ? collectZero(m) : recordShot(m)))
-      .on(
-        "telemetry",
-        (m) =>
-          ($("telemetry").textContent =
-            `${m.fps.toFixed(0)} fps · reference age ${Math.round(m.referenceAge)} ms · ${m.tests} test pulses · ${m.detections || 0} live detections${m.adapting ? " · adjusting sensitivity — hold fire" : ""}`),
-      )
+      .on("shot", (m) => {
+        if (health.shot(m)) return;
+        zeroSession ? collectZero(m) : recordShot(m);
+      })
+      .on("telemetry", (m) => {
+        $("telemetry").textContent =
+          `${m.fps.toFixed(0)} fps · reference age ${Math.round(m.referenceAge)} ms · ${m.tests} test pulses · ${m.detections || 0} live detections${m.adapting ? " · adjusting sensitivity — hold fire" : ""}`;
+        health.telemetry(m);
+      })
       .on("closed", (reason) => {
         clearAllZeros();
         phoneReady = false;
@@ -1635,6 +1693,7 @@ sessionsSelect.onchange = () => {
 };
 
 function invalidateProjection(message) {
+  health.interrupt(message);
   clearAllZeros();
   phoneReady = false;
   channel?.send({ type: "reset" });
@@ -1669,6 +1728,7 @@ function configureProjection() {
     youtubeId: youtubeId($("youtubeUrl").value),
     calibrating,
     zero: zeroPattern,
+    diagnosticPoint,
     offset: channel?.offset || 0,
   });
 }

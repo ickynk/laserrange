@@ -1,3 +1,4 @@
+import { drawTestPoint } from "./core/range-health.js";
 import { applyRangeCommand } from "./core/range-command.js";
 import { Magazine, showMagazine } from "./core/magazine.js";
 import { SegmentClock } from "./core/segment-clock.js";
@@ -189,7 +190,15 @@ async function configure(m) {
   calibrating = !!m.calibrating;
   zeroPattern = m.zero === true;
   $("pattern").hidden = !calibrating;
-  if (calibrating) (zeroPattern ? drawZero : drawCalibration)($("pattern"));
+  if (calibrating) {
+    if (
+      Number.isInteger(m.diagnosticPoint) &&
+      m.diagnosticPoint >= 0 &&
+      m.diagnosticPoint < 9
+    )
+      drawTestPoint($("pattern"), m.diagnosticPoint);
+    else (zeroPattern ? drawZero : drawCalibration)($("pattern"));
+  }
   $("impacts").replaceChildren();
   ready = true;
   updateInput();
@@ -260,7 +269,15 @@ async function handle(m) {
       calibrating = !!m.active;
       zeroPattern = m.zero === true;
       $("pattern").hidden = !calibrating;
-      if (calibrating) (zeroPattern ? drawZero : drawCalibration)($("pattern"));
+      if (calibrating) {
+        if (
+          Number.isInteger(m.diagnosticPoint) &&
+          m.diagnosticPoint >= 0 &&
+          m.diagnosticPoint < 9
+        )
+          drawTestPoint($("pattern"), m.diagnosticPoint);
+        else (zeroPattern ? drawZero : drawCalibration)($("pattern"));
+      }
       history = [];
       updateInput();
       break;

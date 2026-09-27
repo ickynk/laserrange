@@ -5,8 +5,8 @@ Version 0.1.0, hardware-validation alpha.
 | Check | Result |
 |---|---|
 | JavaScript syntax (`npm run check`) | Passed |
-| Node unit/integration suite (`npm test`) | 44 passed, 0 failed |
-| Playwright browser suite | Voice revision: 9 focused tests passed; previous revision: 34-test full suite passed. Voice tests also rerun after final error-handling changes. |
+| Node unit/integration suite (`npm test`) | 48 passed, 0 failed |
+| Playwright browser suite | Range Health revision: full 41-test suite passed without retries (5.8 minutes), including both synthetic-camera flows and all voice tests. |
 | Rendered desktop interface | Screenshot inspected |
 | Physical iPhone / Android camera | User reports working auto-alignment and horizontal placement; successful screen-zero correction; connection-recovery hardware retest pending |
 | TitanX / DryFireMag-associated laser | User hardware feedback received; device-specific accuracy unverified |
@@ -59,3 +59,6 @@ Editor/pairing/audio revision: the full 34-test browser suite passed without ret
 
 
 Phone voice revision: unit tests cover exact command matching, partial-magazine refill, held-segment constraints, original dry-trigger refill, interim/duplicate/old-session recognition rejection and permission denial. A real WebSocket protocol test rejects stale/malformed/unknown commands and verifies only command metadata reaches the paired host. Browser tests use a mocked speech recognizer with the actual phone/server/operator/projector path to verify Cover, Moving, Retrograde, confirmations, duplicate-result rejection, Stop voice, unsupported-browser messaging and retained dry-click behavior. The focused nine-test run also covers previous laser segment controls, saved-range loading, ammo/audio and pairing recovery. All passed; the three voice tests passed again after the final initialization/timeout handling changes. No real microphone transcription or simultaneous camera/microphone behavior is validated by the mocked recognizer. Physical speech latency, service availability, speaker/video cross-triggering and iPhone/Android audio capture still require testing.
+
+
+Range Health revision: unit coverage verifies telemetry sanitization, stale/readiness advisories, nine-point raw and zero-corrected placement statistics, incomplete/interrupted results, count deficits, timed false-event rates and voice acknowledgments. Four browser regressions exercise placement in both display modes without scored shots, live pulse counting, timed no-fire observation, stale-telemetry interruption, persisted result history and the guided command sequence through the actual WebSocket/projector path. These new tests inject protocol-level camera/voice events; they do not establish physical detection recall, optical error or speech-recognition performance. The existing full synthetic-camera regressions separately exercise the browser detector. The new panel and placement board were visually inspected. Calibration fit is a last-alignment snapshot, not live drift tracking. Count agreement is not recall, and placement results include aiming error. Detector and calibration thresholds were not changed by this revision.

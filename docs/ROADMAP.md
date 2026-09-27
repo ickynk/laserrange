@@ -32,6 +32,14 @@
 - Laser/click projector strip with Start, Restart, saved-range menu and segment controls.
 - Control strikes excluded from scoring, cooldown/stale-pulse filtering, and preserved calibration frame.
 
+## Completed: Range Health and guided hardware measurements
+
+- Read-only health panel: freshness/FPS, source age, camera dimensions, laser threshold, sparse brightness, last alignment fit and video-filter rejection counters.
+- Nine-point placement board with raw and shooter-zero-corrected median errors, preserving the calibrated screen frame.
+- Live pulse-count, timed no-fire and guided voice observations with explicit measurement limitations.
+- Completed/Incomplete/Interrupted results and the latest 12 aggregate reports retained in the operator browser.
+- Detector thresholds, synchronization and calibration behavior unchanged; real hardware measurements still required.
+
 ## Hardware phase: optical reliability
 
 1. Collect real camera fixtures for TitanX and the exact DryFireMag-associated laser setup, on iOS Safari and Android Chrome.

@@ -60,6 +60,7 @@ let channel,
   patternActive = false,
   autoRequested = false,
   patternTimer;
+let alignmentQuality = null;
 let voiceRunId = null,
   pendingVoice = null,
   voiceReplyTimer;
@@ -137,6 +138,7 @@ function invalidate(reason, { keepCorners = false } = {}) {
   $("arm").disabled = true;
   $("testStatus").textContent = "0 / 3 pulses detected";
   if (!keepCorners) {
+    alignmentQuality = null;
     channel?.send({ type: "alignment-changed" });
     corners = [];
     manualPoints = [];
@@ -357,6 +359,7 @@ function drawCorners() {
     `${mapping ? 4 : manualPoints.length} / 4 anchors${mapping ? " · aligned" : ""}`;
 }
 function applyCalibration(transform) {
+  alignmentQuality = { method: "manual", rms: null, checkError: null };
   channel?.send({ type: "alignment-changed" });
   corners = outerCorners(transform);
   calibrationTransform = transform;
@@ -473,6 +476,11 @@ function tryAuto(time) {
     autoCandidate = found;
     if (autoStable >= 3) {
       applyCalibration(result.transform);
+      alignmentQuality = {
+        method: "auto",
+        rms: result.rms,
+        checkError: result.checkError,
+      };
       autoUntil = 0;
       $("alignmentStatus").textContent =
         `Automatically aligned: 5/5 codes; fit ${result.rms.toFixed(1)} px, independent center check ${result.checkError.toFixed(1)} px (camera pixels). Verify numbered overlay circles match the crosshairs, then capture baseline.`;
@@ -691,8 +699,30 @@ function processFrame() {
     frameCount = 0;
     $("cameraTelemetry").textContent =
       `${Math.round(fps)} fps · ${detector.color} · ${adaptingUntil ? "ADJUSTING" : armed ? "ARMED" : "disarmed"} · ${detectedShots} live detections · source reference ${lastReferenceAge >= 9999 ? "unavailable" : Math.round(lastReferenceAge) + " ms"}`;
+    let bright = 0,
+      dark = 0,
+      n = 0;
+    if (mapping)
+      for (let i = 0; i < out.data.length; i += 64) {
+        n++;
+        const r = out.data[i],
+          g = out.data[i + 1],
+          b = out.data[i + 2];
+        if (Math.min(r, g, b) >= 250) bright++;
+        if (Math.max(r, g, b) <= 10) dark++;
+      }
     channel?.send({
       type: "telemetry",
+      width: capture.width,
+      height: capture.height,
+      color: detector.color,
+      threshold: detector.threshold,
+      brightPercent: n ? (bright * 100) / n : null,
+      darkPercent: n ? (dark * 100) / n : null,
+      alignment: alignmentQuality,
+      candidates: videoFilter.candidates,
+      confirmed: videoFilter.confirmed,
+      reasons: videoFilter.reasons,
       fps,
       referenceAge: lastReferenceAge,
       tests: testCount,

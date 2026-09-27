@@ -1,3 +1,4 @@
+import { sanitizeHealth } from "./public/core/health-telemetry.js";
 import { libraryRequest } from "./server/library.js";
 import http from "node:http";
 import https from "node:https";
@@ -326,6 +327,7 @@ export function createRangeServer({
         if (m.type === "telemetry")
           send(session.host, {
             type: "telemetry",
+            ...sanitizeHealth(m),
             fps: Number(m.fps) || 0,
             referenceAge: Number(m.referenceAge) || 0,
             tests: Number(m.tests) || 0,

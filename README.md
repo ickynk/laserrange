@@ -37,6 +37,7 @@ No build step, database, paid service, or native mobile app is needed. Dependenc
 - Uploaded-video playback with source-frame snapshots and manual scoring. YouTube IFrame playback with **phone camera snapshots**, manual scoring, and reduced-confidence detection.
 - Small persistent impact dots on targets and barriers, attached to their 3D surfaces so they follow target movement. Misses and uncertain/video events retain small screen-position dots. New sessions clear the marks.
 - Mouse-driven demo mode; countdown/configurable beep; turn-based shooter comparison for up to 50 runs, with images for the newest five. Review frames support arrow keys, previous/next buttons and image clicks.
+- Range Health panel and guided placement, pulse-count, no-fire and voice tests, with aggregate results retained in the operator browser.
 - Automated geometry, image-processing, protocol, and browser tests; GitHub Actions verification.
 
 ## Important accuracy boundaries

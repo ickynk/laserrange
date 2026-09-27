@@ -809,3 +809,33 @@ summary {
   font-weight: bold;
   pointer-events: none;
 }
+
+#healthMetrics {
+  font-size: 12px;
+  margin: 12px 0;
+}
+#healthMetrics dt {
+  color: #a9b5c4;
+  margin-top: 8px;
+}
+#healthMetrics dd {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+}
+#healthStatus {
+  border-left: 3px solid #d0b16d;
+  padding-left: 9px;
+}
+.healthTable {
+  overflow-x: auto;
+}
+.healthTable td,
+.healthTable th {
+  padding: 5px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+#testResults p {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
