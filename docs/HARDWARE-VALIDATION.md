@@ -84,3 +84,10 @@ Check that countdown/beep timing is usable with the actual projector and operato
 With the projector geometry unchanged, arm the phone and test a laser strike on Start while idle, then Restart and End. Confirm that none of these strikes add scored shots or marks. Repeat over uploaded video and YouTube. Strike a disabled control and a gap; neither should score. Check that a single physical pulse triggers only one action and allow at least one second between commands.
 
 Enable Pause at camera segment ends on a short path. Let the first hold exceed the normal scenario Duration, record a shot, then test Next and Previous. Confirm the camera and target schedule hold, historical shot placement remains correct, and the shot timer continues. At the last point, use End. Open Ranges, page through saved entries, load another range and use Start; confirm alignment and the shooter zero remain valid without moving the phone/projector. Finally reopen calibration and confirm that the strip is hidden and calibration strikes cannot trigger simulator commands.
+
+## Editor, audio and ammunition revision
+
+- Scan the displayed QR on each real phone, connect without refresh/manual-code entry, and confirm retained readiness after a temporary connection interruption. If rate limiting persists, capture both phone and operator notices; the original burst source has not been reproduced on hardware.
+- Preview gunshot audio on the operator's intended speakers, set a comfortable volume, then confirm one report per registered laser pulse in 3D and video. Listen for delay/clipping and verify the dry click is distinct. Browser-generated effects are not device-specific recordings.
+- Set a small magazine (e.g. 3), confirm Reload after three shots, one unscored dry click on the fourth trigger, and a live shot on the fifth. Repeat via projector controls and confirm their strikes do not consume rounds or play gunshots. Restart should refill; countdown/calibration should consume none.
+- Build a path with alternating node/focus clicks, review the saved focus points, and inspect the smoothed camera motion at each join and held endpoint.

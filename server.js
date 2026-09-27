@@ -155,7 +155,8 @@ export function createRangeServer({
       const time = Date.now();
       tokens = Math.min(200, tokens + (time - windowStart) * 0.05);
       windowStart = time;
-      if (--tokens < 0) return ws.close(1008, "Rate limit");
+      if (--tokens < 0)
+        return ws.close(1013, "Rate limit; retry after five seconds");
       let m;
       try {
         m = JSON.parse(raw);
@@ -260,6 +261,7 @@ export function createRangeServer({
             active: m.active === true,
           });
         if (m.type === "ready") {
+          if (session.ready === (m.ready === true)) return;
           session.ready = m.ready === true;
           send(session.host, {
             type: "phone-status",

@@ -67,3 +67,55 @@ test("Beep honors mute, settings and cancellation during audio permission resume
     globalThis.AudioContext = original;
   }
 });
+
+test("Gunshot and dry-click buffers are distinct; mute and blocked audio never queue reports", async () => {
+  const { ShotAudio } = await import("../public/core/shot-audio.js");
+  const original = globalThis.AudioContext;
+  let starts = [],
+    stopped = 0;
+  globalThis.AudioContext = class {
+    sampleRate = 48000;
+    state = "suspended";
+    destination = {};
+    async resume() {
+      this.state = "running";
+    }
+    createBuffer(channels, length, rate) {
+      return {
+        duration: length / rate,
+        getChannelData: () => new Float32Array(length),
+      };
+    }
+    createBufferSource() {
+      return {
+        connect() {},
+        disconnect() {},
+        start() {
+          starts.push(this.buffer.duration);
+        },
+        stop() {
+          stopped++;
+        },
+      };
+    }
+    createGain() {
+      return { gain: {}, connect() {}, disconnect() {} };
+    }
+  };
+  try {
+    const a = new ShotAudio();
+    assert.equal(a.play("shot"), false);
+    a.unlock();
+    await Promise.resolve();
+    assert.equal(starts.length, 0);
+    assert.equal(a.play("shot", { shotAudio: false }), false);
+    assert.equal(a.play("shot", { shotVolume: 0 }), false);
+    assert.equal(a.play("shot"), true);
+    assert.equal(a.play("click"), true);
+    assert.deepEqual(starts, [0.7, 0.09]);
+    a.cancel();
+    assert.equal(stopped, 2);
+  } finally {
+    globalThis.AudioContext = original;
+  }
+});

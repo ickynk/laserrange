@@ -1,3 +1,4 @@
+import { Magazine, showMagazine } from "./core/magazine.js";
 import { SegmentClock } from "./core/segment-clock.js";
 import { ProjectorControls, CONTROL_TOP } from "./core/projector-controls.js";
 import { RangeScene } from "./range.js";
@@ -28,6 +29,7 @@ let scenario = defaultScenario(),
   generation = 0,
   ready = false,
   offline = false;
+let magazine = new Magazine();
 const now = () => Date.now() + offset;
 range.setScenario(scenario);
 let timeline = new SegmentClock(scenario, 0),
@@ -58,6 +60,7 @@ function stop() {
   const wasRunning = running;
   running = false;
   $("countdownDisplay").hidden = true;
+  $("ammoDisplay").hidden = true;
   pause();
   updateInput();
   if (wasRunning) send({ type: "ended", runId, elapsed });
@@ -238,6 +241,8 @@ async function handle(m) {
       clearError();
       scenario = validateScenario(m.scenario);
       timeline = new SegmentClock(scenario, m.started, mode);
+      magazine = new Magazine(scenario.session);
+      showMagazine($("ammoDisplay"), magazine.state(), true);
       controls.menu = false;
       range.setScenario(scenario, m.roles);
       started = m.started;
@@ -322,6 +327,10 @@ function record(m, isDemo = false) {
     (!timeline.enabled && time > scenario.duration)
   )
     return;
+  const trigger = magazine.trigger();
+  showMagazine($("ammoDisplay"), trigger, true);
+  send({ type: "ammunition", runId, state: trigger });
+  if (!trigger.fired) return;
   const h = history.reduce(
     (best, f) =>
       Math.abs(f.time - capture) < Math.abs((best?.time ?? Infinity) - capture)

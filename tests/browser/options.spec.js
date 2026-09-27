@@ -173,7 +173,7 @@ for (const separate of [false, true])
     page,
   }) => {
     await page.goto("/");
-    await page.getByText("Session start", { exact: true }).click();
+    await page.getByText("Session, sound & ammunition", { exact: true }).click();
     await page.locator("#countdownSeconds").fill("2");
     await page.locator("#countdownSeconds").blur();
     await page.locator("[data-tab=video]").click();

@@ -198,3 +198,19 @@ The separate projector now reserves its **bottom 14%** for neutral-colored simul
 With the phone calibrated/armed and live camera input selected, place a laser strike inside a control button. Start works before a scored session begins. Disabled buttons, control gaps and menu strikes do not add shots, misses or impact marks. Actions have a 900 ms cooldown, and stale pulses from before a changed button layout are ignored. Pointer clicks also work, including over YouTube playback. Previous/Next are enabled only for a held 3D segment; they do not seek video playback.
 
 **Ranges** ends and archives the current run and opens a paginated list from the host's saved range folder. Select a range, wait for the projector and camera to be ready, then select Start. The menu has Back and page controls; an empty library directs you to save a range on the operator first. Restart ends/archives the current run, clears current marks/statistics, and starts again using the configured countdown. The unlocked operator handles range access; credentials are not sent to the projector. Physical laser-control reliability still needs testing on the projector, particularly during YouTube video.
+
+### Compact editor and alternating camera placement
+
+The Range tab groups settings into **Scenario & shooter**, **Targets & barriers**, **Shooter camera & movement**, and **Session, sound & ammunition**. Click each heading to expand/collapse it. On desktop the editor scrolls independently within the viewport; the range stays alongside it. Mobile keeps the range above the controls.
+
+Open **Shooter camera & movement → Draw camera path**. Each click adds the next movement node; the following click places the focal point for that completed segment. Repeat node, focus, node, focus. If you cleared the path, the very first click establishes the starting position. The prompt above the range tells you which click comes next. Escape finishes. Existing segment focus controls still let you revise any segment individually. Focus points use the existing saved-range schema and smoothing settings.
+
+### Shot sounds and optional magazine counter
+
+Open **Session, sound & ammunition**. Gunshot/dry-click audio defaults on, with its own volume slider and **Preview gunshot** button. These are original synthesized report/click effects, not recordings of a particular firearm. Sound plays on the **operator computer's selected audio output**, including when a separate projector window is used. Click Preview gunshot once before laser-only operation to unlock browser audio; the status below it reports readiness. If audio is blocked, shots still record and no delayed sounds are queued. Muting the start beep does not mute shot sounds, and vice versa.
+
+Enable **Magazine counter** and choose **Rounds per magazine** (1–200). Each accepted shot consumes one round. At zero the top of the range/projector displays **Reload**. The next detected trigger plays a dry click, does not score or leave an impact, and refills the counter. The following trigger fires normally. This is an assumed reload, not physical reload detection; reload your training device as needed. The counter starts full on every new/restarted session. Calibration pulses, countdown pulses and projector control/menu strikes do not consume ammo. Counter settings are saved with the range and apply to 3D and video sessions.
+
+### Pairing rate-limit recovery
+
+A temporary WebSocket rate-limit response now waits five seconds and reconnects automatically with the same credentials. You should not need to refresh or type the code again for this condition. Invalid/expired credentials and an already-connected different phone still produce a pairing error. QR scanning opens the prefilled phone link; select Connect, then enable the camera. Redundant readiness messages are suppressed; message-rate and authentication protections remain enabled.

@@ -54,7 +54,9 @@ export class Channel extends EventTarget {
       clearTimeout(deadline);
       if (ws !== this.ws || this.stopped) return;
       clearInterval(this.timer);
-      if ([1008, 1009, 4001].includes(e.code)) {
+      const rateLimited =
+        e.code === 1013 || (e.code === 1008 && /rate limit/i.test(e.reason));
+      if (!rateLimited && [1008, 1009, 4001].includes(e.code)) {
         this.stopped = true;
         return this.emit("closed", e.reason || "Connection rejected");
       }
@@ -62,7 +64,9 @@ export class Channel extends EventTarget {
         "reconnecting",
         e.reason || "Network interrupted; reconnecting automatically",
       );
-      const delay = Math.min(5000, 500 * 2 ** Math.min(this.attempt++, 4));
+      const delay = rateLimited
+        ? 5000
+        : Math.min(5000, 500 * 2 ** Math.min(this.attempt++, 4));
       this.retry = setTimeout(
         () => this.connect(),
         delay + Math.random() * 200,

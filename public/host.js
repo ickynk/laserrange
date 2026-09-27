@@ -1,6 +1,8 @@
+import { Magazine, showMagazine } from "./core/magazine.js";
 import { SegmentClock } from "./core/segment-clock.js";
 import { openTargetCrop } from "./core/image-crop.js";
 import { installSavedLibrary } from "./core/saved-library.js";
+import { ShotAudio } from "./core/shot-audio.js";
 import { SessionAudio } from "./core/audio.js";
 import { ProjectionLink } from "./core/projection-link.js";
 import { calculateZero, applyZero, outsideScreen } from "./core/zero.js";
@@ -22,6 +24,7 @@ let scenario = defaultScenario(),
   selected = "alpha",
   drawing = null,
   dragging = null,
+  pendingCameraFocus = null,
   mode = "3d",
   running = false,
   started = 0,
@@ -46,6 +49,30 @@ let timeline = null,
   remoteNav = null,
   simulatorBusy = false;
 const sessionAudio = new SessionAudio();
+const shotAudio = new ShotAudio(
+  (message) => ($("audioStatus").textContent = message),
+);
+let magazine = new Magazine();
+// A real operator gesture unlocks sound for subsequent camera/laser triggers.
+document.addEventListener("pointerdown", () => shotAudio.unlock(), {
+  once: true,
+});
+$("previewShot").onclick = async () => {
+  if (running) return;
+  shotAudio.unlock();
+  if (shotAudio.context) {
+    try {
+      await shotAudio.context.resume();
+    } catch {
+      return;
+    }
+  }
+  shotAudio.play("shot", scenario.session);
+};
+function ammunitionFeedback(state) {
+  showMagazine($("ammoDisplay"), state, running && !calibrating);
+  shotAudio.play(state.fired ? "shot" : "click", scenario.session);
+}
 let selectedZone = 0,
   runScenarioKey = "",
   runScenarioName = "",
@@ -89,6 +116,10 @@ function rebuild() {
   $("beepFrequency").value = settings.frequency ?? 880;
   $("beepDuration").value = settings.beepDuration ?? 0.12;
   $("beepVolume").value = settings.volume ?? 0.08;
+  $("shotAudio").checked = settings.shotAudio ?? true;
+  $("shotVolume").value = settings.shotVolume ?? 0.3;
+  $("ammoEnabled").checked = settings.ammoEnabled ?? false;
+  $("magazineSize").value = settings.magazineSize ?? 15;
   $("cameraMotion").checked = scenario.cameraMotion;
   $("pauseAtSegments").checked = scenario.pauseAtSegments ?? false;
   for (const key of ["cameraHeight", "cameraFov", "cameraFocusBlend"])
@@ -267,12 +298,17 @@ for (const [id, key] of [
   ["beepFrequency", "frequency"],
   ["beepDuration", "beepDuration"],
   ["beepVolume", "volume"],
+  ["shotAudio", "shotAudio"],
+  ["shotVolume", "shotVolume"],
+  ["ammoEnabled", "ammoEnabled"],
+  ["magazineSize", "magazineSize"],
 ])
   $(id).onchange = () =>
     edit(() => {
       scenario.session ||= {};
-      scenario.session[key] =
-        key === "beep" ? $(id).checked : Number($(id).value);
+      scenario.session[key] = ["beep", "shotAudio", "ammoEnabled"].includes(key)
+        ? $(id).checked
+        : Number($(id).value);
     });
 $("previewBeep").onclick = () => {
   if (!running) sessionAudio.schedule(scenario.session);
@@ -380,6 +416,7 @@ $("cameraMotion").onchange = () =>
 function setDrawing(kind) {
   if (running) return;
   drawing = drawing === kind ? null : kind;
+  pendingCameraFocus = null;
   range.editor = true;
   $("viewLabel").textContent = "OVERHEAD / DRAG TO PLACE";
   $("viewToggle").textContent = "Perspective view";
@@ -387,13 +424,23 @@ function setDrawing(kind) {
     ? `Click floor points for the ${kind} path. Press Escape to finish.`
     : "Drag objects to reposition them.";
   $("stage").classList.toggle("drawing", !!drawing);
+  if (drawing === "camera") cameraDrawHint();
   projectionView();
+}
+function cameraDrawHint() {
+  $("editorHint").textContent =
+    pendingCameraFocus !== null
+      ? "Click the focal point for the completed segment. Escape finishes."
+      : scenario.cameraPath.length
+        ? "Click the next movement node, then its focal point. Escape finishes."
+        : "Click the camera start position, then the next movement node and its focal point.";
 }
 $("targetPath").onclick = () => setDrawing("target");
 $("cameraPath").onclick = () => setDrawing("camera");
 $("clearPath").onclick = () => edit(() => (object().path = []));
 $("clearCameraPath").onclick = () =>
   edit(() => {
+    pendingCameraFocus = null;
     scenario.cameraPath = [];
     scenario.cameraSegments = [];
   });
@@ -505,9 +552,28 @@ $("range").onpointerdown = (e) => {
         $("stage").classList.remove("drawing");
         $("editorHint").textContent =
           "Focus set. Select another segment to change its focus.";
-      } else if (drawing === "camera") scenario.cameraPath.push(floor);
-      else if (object()?.kind) object().path.push(floor);
+      } else if (drawing === "camera") {
+        if (pendingCameraFocus !== null) {
+          scenario.cameraSegments ||= [];
+          while (scenario.cameraSegments.length <= pendingCameraFocus)
+            scenario.cameraSegments.push({});
+          scenario.cameraSegments[pendingCameraFocus].focus = {
+            ...floor,
+            y: Number($("focusHeight").value),
+          };
+          pendingCameraFocus = null;
+        } else {
+          scenario.cameraPath.push(floor);
+          if (scenario.cameraPath.length > 1)
+            pendingCameraFocus = scenario.cameraPath.length - 2;
+        }
+        cameraDrawHint();
+      } else if (object()?.kind) object().path.push(floor);
     });
+    if (drawing === "camera" && scenario.cameraPath.length > 1) {
+      $("cameraSegment").value = String(scenario.cameraPath.length - 2);
+      refreshSegments();
+    }
     return;
   }
   const id = range.pick(p.x, p.y);
@@ -1016,6 +1082,9 @@ function recordShot(m, demo = false) {
   if (capture < started) return;
   const elapsed = (capture - started) / 1000;
   if (!timeline?.enabled && elapsed > scenario.duration) return;
+  const trigger = magazine.trigger();
+  ammunitionFeedback(trigger);
+  if (!trigger.fired) return;
   const h = history.reduce(
     (best, f) =>
       Math.abs(f.time - capture) < Math.abs((best?.time ?? Infinity) - capture)
@@ -1075,6 +1144,9 @@ function startRun() {
   running = true;
   started = now() + (scenario.session?.countdown || 0) * 1000;
   timeline = new SegmentClock(scenario, started, mode);
+  magazine = new Magazine(scenario.session);
+  showMagazine($("ammoDisplay"), magazine.state(), true);
+  shotAudio.unlock();
   remoteNav = null;
   mediaStarted = false;
   $("movie").pause();
@@ -1147,6 +1219,8 @@ function stopRun() {
   const startedScoring = running && now() >= started;
   running = false;
   sessionAudio.cancel();
+  shotAudio.cancel();
+  $("ammoDisplay").hidden = true;
   $("countdownDisplay").hidden = true;
   if (wasRunning) projection?.send({ type: "stop" });
   updateShotInput();
@@ -1320,6 +1394,7 @@ async function connectHost(explicitToken) {
         );
       })
       .on("phone-status", (m) => {
+        const newlyConnected = m.connected && !phoneConnected;
         const newlyArmed = m.ready && !phoneReady;
         phoneConnected = m.connected;
         phoneReady = m.ready;
@@ -1345,7 +1420,7 @@ async function connectHost(explicitToken) {
               ? "Camera reconnecting · alignment retained"
               : "Waiting for camera";
         $("statusDot").style.background = m.ready ? "#89d9de" : "#f2bb70";
-        if (m.connected && !m.ready) {
+        if (newlyConnected && !m.ready) {
           channel.send({ type: "mode", mode });
           channel.send({ type: "pattern", active: calibrating });
         }
@@ -1639,6 +1714,8 @@ function onProjectionMessage(m) {
         ? ""
         : `${m.playing ? "Playing" : "Paused"} · ${Number(m.videoTime).toFixed(1)} sec · projector`;
   }
+  if (m.type === "ammunition" && running && m.runId === started)
+    ammunitionFeedback(m.state);
   if (m.type === "scored-shot" && running && m.runId === started)
     acceptShot(m.shot);
   if (m.type === "ended" && running && m.runId === started) stopRun();

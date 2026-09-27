@@ -53,3 +53,10 @@
 - Multi-shooter simultaneous attribution requires distinguishing optical signals or dedicated hardware; ordinary same-color dots are insufficient.
 
 The project has no promise of zero false positives. Production-readiness is conditional on measured optical performance.
+
+Completed in editor/pairing/audio revision:
+- Collapsible editor groups and viewport-bounded desktop scrolling.
+- Alternating camera destination/focus placement using saved segment focus points.
+- Retryable rate-limit cooldown and reduced redundant pairing status traffic.
+- Local synthesized shot/dry-click audio with independent mute/volume.
+- Optional magazine count, Reload prompt and one dry-trigger assumed reload.

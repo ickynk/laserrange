@@ -773,3 +773,39 @@ summary {
   cursor: crosshair;
   touch-action: none;
 }
+
+/* Keep every editor control reachable without pushing the live range away. */
+@media (min-width: 761px) {
+  .controls {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    max-height: calc(100dvh - 130px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+}
+.controls details {
+  margin: 10px 0;
+  min-width: 0;
+}
+.controls details > summary {
+  cursor: pointer;
+  padding: 10px 0;
+  font-weight: 600;
+}
+.ammoDisplay {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  padding: 7px 16px;
+  border-radius: 6px;
+  color: #f1f1eb;
+  background: #101418;
+  font-size: clamp(16px, 2vw, 30px);
+  font-weight: bold;
+  pointer-events: none;
+}

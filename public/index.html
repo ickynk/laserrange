@@ -31,314 +31,326 @@
           ><button data-tab="video">Video</button>
         </nav>
         <section id="tab-range">
-          <label
-            >Scenario name<input
-              id="scenarioName"
-              value="First light"
-              maxlength="100"
-          /></label>
-          <div class="row">
+          <details id="scenarioOptions" open>
+            <summary>Scenario &amp; shooter</summary>
             <label
-              >Duration · sec<input
-                id="duration"
-                type="number"
-                min="1"
-                max="600"
-                value="30" /></label
-            ><label
-              >Shooter<input id="shooter" value="Nick" maxlength="60"
+              >Scenario name<input
+                id="scenarioName"
+                value="First light"
+                maxlength="100"
             /></label>
-          </div>
-          <div class="row">
-            <button id="addTarget">+ Target</button
-            ><button id="addBarrier">+ Barrier</button>
-          </div>
-          <label
-            >Selected object<select id="objects">
-              <option>Choose an object</option>
-            </select></label
-          >
-          <div id="properties">
             <div class="row">
-              <label>X<input id="objX" type="number" step=".25" /></label
-              ><label>Z<input id="objZ" type="number" step=".25" /></label>
+              <label
+                >Duration · sec<input
+                  id="duration"
+                  type="number"
+                  min="1"
+                  max="600"
+                  value="30" /></label
+              ><label
+                >Shooter<input id="shooter" value="Nick" maxlength="60"
+              /></label>
+            </div>
+          </details>
+          <details id="objectOptions" open>
+            <summary>Targets &amp; barriers</summary>
+            <div class="row">
+              <button id="addTarget">+ Target</button
+              ><button id="addBarrier">+ Barrier</button>
+            </div>
+            <label
+              >Selected object<select id="objects">
+                <option>Choose an object</option>
+              </select></label
+            >
+            <div id="properties">
+              <div class="row">
+                <label>X<input id="objX" type="number" step=".25" /></label
+                ><label>Z<input id="objZ" type="number" step=".25" /></label>
+              </div>
+              <div class="row">
+                <label
+                  >Width<input
+                    id="objWidth"
+                    type="number"
+                    min=".1"
+                    max="20"
+                    step=".1" /></label
+                ><label
+                  >Height<input
+                    id="objHeight"
+                    type="number"
+                    min=".1"
+                    max="10"
+                    step=".1"
+                /></label>
+              </div>
+              <div id="barrierProperties" hidden>
+                <label
+                  >Barrier asset<select id="barrierAsset">
+                    <option value="block">Concrete block</option>
+                    <option value="car">Car</option>
+                    <option value="pillar">Pillar</option>
+                    <option value="fence">Metal fence</option>
+                    <option value="window">Window wall · open aperture</option>
+                    <option value="highway">Highway barrier</option>
+                    <option value="wall">Masonry wall</option>
+                    <option value="door">Open doorway</option>
+                    <option value="drum">Oil drum</option>
+                    <option value="ports">3-gun port barricade</option>
+                  </select></label
+                ><label
+                  >Rotation · degrees<input
+                    id="barrierRotation"
+                    type="number"
+                    min="-180"
+                    max="180"
+                    step="5" /></label
+                ><label
+                  >Length · front–back (m)<input
+                    id="objLength"
+                    type="number"
+                    min=".1"
+                    max="10"
+                    step=".1"
+                /></label>
+              </div>
+              <div id="targetProperties">
+                <label
+                  >Target rotation · degrees<input
+                    id="targetRotation"
+                    type="number"
+                    min="-180"
+                    max="180"
+                    step="5"
+                /></label>
+                <label
+                  >Custom target image<input
+                    id="targetImage"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                /></label>
+                <button id="removeTargetImage">Remove custom image</button>
+                <p class="hint">
+                  Upload, zoom and drag to crop onto a cardboard backer. Image
+                  travels with your saved range.
+                </p>
+                <label
+                  >Target asset<select id="targetAsset">
+                    <option value="silhouette">Illustrated silhouette</option>
+                    <option value="cardboard">Cardboard silhouette</option>
+                    <option value="bullseye">Paper bullseye</option>
+                    <option value="mannequin">Full 3D mannequin</option>
+                  </select></label
+                >
+                <label
+                  >Target role<select id="kind">
+                    <option value="shoot">Shoot · armed symbol</option>
+                    <option value="no-shoot">No-shoot · open hands</option>
+                    <option value="random">Randomize each run</option>
+                  </select></label
+                >
+                <div class="row">
+                  <label
+                    >Appear · sec<input
+                      id="start"
+                      type="number"
+                      min="0" /></label
+                  ><label
+                    >Disappear · sec<input id="end" type="number" min="0"
+                  /></label>
+                </div>
+                <label
+                  >Movement speed · m/s<input
+                    id="speed"
+                    type="number"
+                    min=".1"
+                    max="15"
+                    step=".1"
+                /></label>
+                <label
+                  >Movement easing<select id="targetEasing">
+                    <option value="linear">Constant speed</option>
+                    <option value="smooth">
+                      Smooth acceleration per segment
+                    </option>
+                  </select></label
+                >
+                <div class="row">
+                  <label
+                    >Repeat every · sec (0 = once)<input
+                      id="repeatEvery"
+                      type="number"
+                      min="0"
+                      max="600"
+                      step=".1" /></label
+                  ><label
+                    >Visible each repeat · sec<input
+                      id="visibleFor"
+                      type="number"
+                      min=".1"
+                      max="600"
+                      step=".1"
+                  /></label>
+                </div>
+                <details>
+                  <summary>Scoring zones</summary>
+                  <p class="hint">
+                    Coordinates are fractions of target width/height, from the
+                    top left. First matching zone wins; outside zones earns 0
+                    points.
+                  </p>
+                  <select id="zones" aria-label="Scoring zone"></select>
+                  <div class="row">
+                    <button id="addZone">Add zone</button
+                    ><button id="deleteZone">Remove zone</button
+                    ><button id="zoneUp">Move first</button>
+                  </div>
+                  <div id="zoneProperties" hidden>
+                    <label>Name<input id="zoneName" maxlength="30" /></label
+                    ><label
+                      >Shape<select id="zoneShape">
+                        <option value="ellipse">Ellipse</option>
+                        <option value="rectangle">Rectangle</option>
+                      </select></label
+                    >
+                    <div class="row">
+                      <label
+                        >Center X<input
+                          id="zoneX"
+                          type="number"
+                          min="0"
+                          max="1"
+                          step=".01" /></label
+                      ><label
+                        >Center Y<input
+                          id="zoneY"
+                          type="number"
+                          min="0"
+                          max="1"
+                          step=".01"
+                      /></label>
+                    </div>
+                    <div class="row">
+                      <label
+                        >Width<input
+                          id="zoneWidth"
+                          type="number"
+                          min=".02"
+                          max="1"
+                          step=".01" /></label
+                      ><label
+                        >Height<input
+                          id="zoneHeight"
+                          type="number"
+                          min=".02"
+                          max="1"
+                          step=".01"
+                      /></label>
+                    </div>
+                    <label
+                      >Points<input
+                        id="zonePoints"
+                        type="number"
+                        min="0"
+                        max="100"
+                    /></label>
+                  </div>
+                </details>
+                <div class="row">
+                  <button id="targetPath">Draw target path</button
+                  ><button id="clearPath">Clear path</button>
+                </div>
+              </div>
+              <button id="deleteObject" class="quiet danger">
+                Delete object
+              </button>
+            </div>
+          </details>
+          <details id="cameraOptions">
+            <summary>Shooter camera &amp; movement</summary>
+            <label class="check"
+              ><input id="cameraMotion" type="checkbox" /> Move viewpoint along
+              camera path</label
+            >
+            <label class="check"
+              ><input id="pauseAtSegments" type="checkbox" /> Pause at camera
+              segment ends</label
+            >
+            <p class="hint">
+              Hold scene progression at each endpoint; shots still count. Use
+              Next / Previous to move. Shot timer continues.
+            </p>
+            <button id="previousSegment">Previous segment</button
+            ><button id="nextSegment">Next segment</button>
+            <p id="segmentStatus" class="hint"></p>
+            <div>
+              <label
+                >Camera height · m<input
+                  id="cameraHeight"
+                  type="number"
+                  min=".3"
+                  max="3"
+                  step=".05"
+              /></label>
+              <label
+                >Field of view · degrees<input
+                  id="cameraFov"
+                  type="number"
+                  min="25"
+                  max="100"
+                  step="1"
+              /></label>
+              <label
+                >Focus transition · seconds<input
+                  id="cameraFocusBlend"
+                  type="number"
+                  min="0"
+                  max="5"
+                  step=".1"
+              /></label>
+              <label>Camera segment<select id="cameraSegment"></select></label>
+              <button id="pickFocus">Click focus point</button
+              ><button id="clearFocus">Clear segment focus</button>
+              <label
+                >Focus height · m<input
+                  id="focusHeight"
+                  type="number"
+                  min="0"
+                  max="10"
+                  step=".1"
+                  value="1.4"
+              /></label>
+              <p id="focusSummary" class="hint"></p>
+              <button id="cameraPath">Draw camera path</button
+              ><button id="clearCameraPath">Clear path</button>
             </div>
             <div class="row">
               <label
-                >Width<input
-                  id="objWidth"
+                >Camera speed · m/s<input
+                  id="cameraSpeed"
                   type="number"
                   min=".1"
-                  max="20"
+                  max="15"
                   step=".1" /></label
               ><label
-                >Height<input
-                  id="objHeight"
-                  type="number"
-                  min=".1"
-                  max="10"
-                  step=".1"
-              /></label>
-            </div>
-            <div id="barrierProperties" hidden>
-              <label
-                >Barrier asset<select id="barrierAsset">
-                  <option value="block">Concrete block</option>
-                  <option value="car">Car</option>
-                  <option value="pillar">Pillar</option>
-                  <option value="fence">Metal fence</option>
-                  <option value="window">Window wall · open aperture</option>
-                  <option value="highway">Highway barrier</option>
-                  <option value="wall">Masonry wall</option>
-                  <option value="door">Open doorway</option>
-                  <option value="drum">Oil drum</option>
-                  <option value="ports">3-gun port barricade</option>
-                </select></label
-              ><label
-                >Rotation · degrees<input
-                  id="barrierRotation"
-                  type="number"
-                  min="-180"
-                  max="180"
-                  step="5" /></label
-              ><label
-                >Length · front–back (m)<input
-                  id="objLength"
-                  type="number"
-                  min=".1"
-                  max="10"
-                  step=".1"
-              /></label>
-            </div>
-            <div id="targetProperties">
-              <label
-                >Target rotation · degrees<input
-                  id="targetRotation"
+                >Heading / offset · degrees<input
+                  id="cameraHeading"
                   type="number"
                   min="-180"
                   max="180"
                   step="5"
               /></label>
-              <label
-                >Custom target image<input
-                  id="targetImage"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-              /></label>
-              <button id="removeTargetImage">Remove custom image</button>
-              <p class="hint">
-                Upload, zoom and drag to crop onto a cardboard backer. Image
-                travels with your saved range.
-              </p>
-              <label
-                >Target asset<select id="targetAsset">
-                  <option value="silhouette">Illustrated silhouette</option>
-                  <option value="cardboard">Cardboard silhouette</option>
-                  <option value="bullseye">Paper bullseye</option>
-                  <option value="mannequin">Full 3D mannequin</option>
-                </select></label
-              >
-              <label
-                >Target role<select id="kind">
-                  <option value="shoot">Shoot · armed symbol</option>
-                  <option value="no-shoot">No-shoot · open hands</option>
-                  <option value="random">Randomize each run</option>
-                </select></label
-              >
-              <div class="row">
-                <label
-                  >Appear · sec<input id="start" type="number" min="0" /></label
-                ><label
-                  >Disappear · sec<input id="end" type="number" min="0"
-                /></label>
-              </div>
-              <label
-                >Movement speed · m/s<input
-                  id="speed"
-                  type="number"
-                  min=".1"
-                  max="15"
-                  step=".1"
-              /></label>
-              <label
-                >Movement easing<select id="targetEasing">
-                  <option value="linear">Constant speed</option>
-                  <option value="smooth">
-                    Smooth acceleration per segment
-                  </option>
-                </select></label
-              >
-              <div class="row">
-                <label
-                  >Repeat every · sec (0 = once)<input
-                    id="repeatEvery"
-                    type="number"
-                    min="0"
-                    max="600"
-                    step=".1" /></label
-                ><label
-                  >Visible each repeat · sec<input
-                    id="visibleFor"
-                    type="number"
-                    min=".1"
-                    max="600"
-                    step=".1"
-                /></label>
-              </div>
-              <details>
-                <summary>Scoring zones</summary>
-                <p class="hint">
-                  Coordinates are fractions of target width/height, from the top
-                  left. First matching zone wins; outside zones earns 0 points.
-                </p>
-                <select id="zones" aria-label="Scoring zone"></select>
-                <div class="row">
-                  <button id="addZone">Add zone</button
-                  ><button id="deleteZone">Remove zone</button
-                  ><button id="zoneUp">Move first</button>
-                </div>
-                <div id="zoneProperties" hidden>
-                  <label>Name<input id="zoneName" maxlength="30" /></label
-                  ><label
-                    >Shape<select id="zoneShape">
-                      <option value="ellipse">Ellipse</option>
-                      <option value="rectangle">Rectangle</option>
-                    </select></label
-                  >
-                  <div class="row">
-                    <label
-                      >Center X<input
-                        id="zoneX"
-                        type="number"
-                        min="0"
-                        max="1"
-                        step=".01" /></label
-                    ><label
-                      >Center Y<input
-                        id="zoneY"
-                        type="number"
-                        min="0"
-                        max="1"
-                        step=".01"
-                    /></label>
-                  </div>
-                  <div class="row">
-                    <label
-                      >Width<input
-                        id="zoneWidth"
-                        type="number"
-                        min=".02"
-                        max="1"
-                        step=".01" /></label
-                    ><label
-                      >Height<input
-                        id="zoneHeight"
-                        type="number"
-                        min=".02"
-                        max="1"
-                        step=".01"
-                    /></label>
-                  </div>
-                  <label
-                    >Points<input
-                      id="zonePoints"
-                      type="number"
-                      min="0"
-                      max="100"
-                  /></label>
-                </div>
-              </details>
-              <div class="row">
-                <button id="targetPath">Draw target path</button
-                ><button id="clearPath">Clear path</button>
-              </div>
             </div>
-            <button id="deleteObject" class="quiet danger">
-              Delete object
-            </button>
-          </div>
-          <hr />
-          <label class="check"
-            ><input id="cameraMotion" type="checkbox" /> Move viewpoint along
-            camera path</label
-          >
-          <label class="check"
-            ><input id="pauseAtSegments" type="checkbox" /> Pause at camera
-            segment ends</label
-          >
-          <p class="hint">
-            Hold scene progression at each endpoint; shots still count. Use Next
-            / Previous to move. Shot timer continues.
-          </p>
-          <button id="previousSegment">Previous segment</button
-          ><button id="nextSegment">Next segment</button>
-          <p id="segmentStatus" class="hint"></p>
-          <div>
             <label
-              >Camera height · m<input
-                id="cameraHeight"
-                type="number"
-                min=".3"
-                max="3"
-                step=".05"
-            /></label>
-            <label
-              >Field of view · degrees<input
-                id="cameraFov"
-                type="number"
-                min="25"
-                max="100"
-                step="1"
-            /></label>
-            <label
-              >Focus transition · seconds<input
-                id="cameraFocusBlend"
-                type="number"
-                min="0"
-                max="5"
-                step=".1"
-            /></label>
-            <label>Camera segment<select id="cameraSegment"></select></label>
-            <button id="pickFocus">Click focus point</button
-            ><button id="clearFocus">Clear segment focus</button>
-            <label
-              >Focus height · m<input
-                id="focusHeight"
-                type="number"
-                min="0"
-                max="10"
-                step=".1"
-                value="1.4"
-            /></label>
-            <p id="focusSummary" class="hint"></p>
-            <button id="cameraPath">Draw camera path</button
-            ><button id="clearCameraPath">Clear path</button>
-          </div>
-          <div class="row">
-            <label
-              >Camera speed · m/s<input
-                id="cameraSpeed"
-                type="number"
-                min=".1"
-                max="15"
-                step=".1" /></label
-            ><label
-              >Heading / offset · degrees<input
-                id="cameraHeading"
-                type="number"
-                min="-180"
-                max="180"
-                step="5"
-            /></label>
-          </div>
-          <label
-            >Camera heading<select id="cameraHeadingMode">
-              <option value="fixed">Fixed direction (0 = downrange)</option>
-              <option value="path">Follow path + heading offset</option>
-            </select></label
-          >
-          <details>
-            <summary>Session start</summary>
+              >Camera heading<select id="cameraHeadingMode">
+                <option value="fixed">Fixed direction (0 = downrange)</option>
+                <option value="path">Follow path + heading offset</option>
+              </select></label
+            >
+          </details>
+          <details id="sessionOptions">
+            <summary>Session, sound &amp; ammunition</summary>
             <label
               >Countdown · seconds<input
                 id="countdownSeconds"
@@ -376,24 +388,56 @@
                 max=".3"
                 step=".01" /></label
             ><button id="previewBeep">Preview beep</button>
+            <label class="check"
+              ><input id="shotAudio" type="checkbox" checked /> Gunshot /
+              dry-click sound</label
+            >
+            <label
+              >Shot volume<input
+                id="shotVolume"
+                type="range"
+                min="0"
+                max="1"
+                step=".05"
+                value=".3"
+            /></label>
+            <button id="previewShot">Preview gunshot</button>
+            <p id="audioStatus" class="hint" role="status">
+              Sound plays on the operator computer. Click Preview gunshot once
+              to enable audio before laser-only operation.
+            </p>
+            <label class="check"
+              ><input id="ammoEnabled" type="checkbox" /> Magazine
+              counter</label
+            >
+            <label
+              >Rounds per magazine<input
+                id="magazineSize"
+                type="number"
+                min="1"
+                max="200"
+                step="1"
+                value="15"
+            /></label>
+            <p class="hint">
+              At empty: Reload. The next trigger plays a dry click, is not
+              scored, and refills the counter. Following triggers fire normally.
+            </p>
           </details>
-          <p class="hint" id="editorHint">
-            Switch to overhead to drag objects. Paths use ordered clicks on the
-            floor.
-          </p>
+
+          <details>
+            <summary>Saved ranges · host folder</summary>
+            <label
+              >Save name<input id="rangeLibraryName" maxlength="100"
+            /></label>
+            <button id="saveRangeLibrary">Save range copy</button
+            ><button id="refreshRangeLibrary">Refresh list</button>
+            <select id="rangeLibrary" aria-label="Saved ranges"></select
+            ><button id="loadRangeLibrary">Load selected range</button
+            ><button id="deleteRangeLibrary">Delete selected range</button>
+            <p class="hint">Stored in data/ranges on the host computer.</p>
+          </details>
           <div class="row">
-            <details>
-              <summary>Saved ranges · host folder</summary>
-              <label
-                >Save name<input id="rangeLibraryName" maxlength="100"
-              /></label>
-              <button id="saveRangeLibrary">Save range copy</button
-              ><button id="refreshRangeLibrary">Refresh list</button>
-              <select id="rangeLibrary" aria-label="Saved ranges"></select
-              ><button id="loadRangeLibrary">Load selected range</button
-              ><button id="deleteRangeLibrary">Delete selected range</button>
-              <p class="hint">Stored in data/ranges on the host computer.</p>
-            </details>
             <button id="save">Save locally</button
             ><button id="load">Load saved</button>
           </div>
@@ -535,7 +579,12 @@
             ><button id="fullscreen">Projector</button>
           </div>
         </div>
+        <p class="hint" id="editorHint">
+          Switch to overhead to drag objects. Paths use ordered clicks on the
+          floor.
+        </p>
         <div id="stage">
+          <div id="ammoDisplay" class="ammoDisplay" role="status" hidden></div>
           <div
             id="countdownDisplay"
             class="countdownDisplay"

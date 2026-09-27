@@ -5,8 +5,8 @@ Version 0.1.0, hardware-validation alpha.
 | Check | Result |
 |---|---|
 | JavaScript syntax (`npm run check`) | Passed |
-| Node unit/integration suite (`npm test`) | 39 passed, 0 failed |
-| Playwright browser suite | 30 distinct tests passed across full run and isolated retry; full run: 29 passed, 1 failed; isolated camera retry: passed |
+| Node unit/integration suite (`npm test`) | 41 passed, 0 failed |
+| Playwright browser suite | 34 passed, 0 failed in one full run; saved-library layout regression also passed after the final markup adjustment |
 | Rendered desktop interface | Screenshot inspected |
 | Physical iPhone / Android camera | User reports working auto-alignment and horizontal placement; successful screen-zero correction; connection-recovery hardware retest pending |
 | TitanX / DryFireMag-associated laser | User hardware feedback received; device-specific accuracy unverified |
@@ -52,4 +52,7 @@ Editor revision tests verify camera-focus continuity and deterministic historica
 
 Segment progression regressions cover endpoint holds beyond the nominal duration, continued shot recording, forward/reverse travel, retained focus at holds, historical scene times, legacy/video behavior and invalid path durations. Projector controls are exercised with paired protocol-level laser messages and native pointer input: idle Start, Next/Previous, Restart, saved-range menu/load, and exclusion of control strikes from shot totals. Unit coverage checks disabled/stale controls and duplicate suppression. The rendered lower-border strip was visually inspected. Physical laser activation of the strip remains unverified.
 
-The 30-test browser run passed 29 tests, but the separate-projector synthetic camera test recorded its first shot without classifying the expected miss. An unchanged isolated rerun passed the entire camera flow (including video, zero and reconnection) in 1.9 minutes. This is an intermittent scoring/timing test failure; its exact cause is not established. Scoring confidence and reference-age safeguards were not weakened.
+In the previous segment-controls revision, the 30-test browser run passed 29 tests, but the separate-projector synthetic camera test recorded its first shot without classifying the expected miss. An unchanged isolated rerun passed the entire camera flow (including video, zero and reconnection) in 1.9 minutes. This is an intermittent scoring/timing test failure; its exact cause is not established. Scoring confidence and reference-age safeguards were not weakened.
+
+
+Editor/pairing/audio revision: the full 34-test browser suite passed without retries, including both complete synthetic-camera flows. New browser coverage verifies independent editor scrolling, alternating movement/focus placement and saved schema, the QR-encoded URL with prefilled code, forced WebSocket rate limiting followed by automatic same-code recovery, magazine depletion/dry trigger/refill/reset in both display modes, distinct audio playback and mute behavior. Unit coverage tests magazine boundaries, disabled unlimited mode, invalid settings, distinct audio buffers, blocked-audio dropping and cancellation. Desktop and mobile layouts plus the Reload banner were inspected. The saved-range controls received a final full-width layout adjustment and their crop/focus/library regression was rerun successfully. Physical QR reliability, real laser/audio latency and perceived sound realism remain unmeasured. The original hardware rate-limit burst source was not reproduced; the verified fix is automatic recovery plus less redundant status traffic.

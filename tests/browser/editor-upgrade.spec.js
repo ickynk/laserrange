@@ -39,6 +39,7 @@ test("Custom crop, target rotation, focus segments and saved host folders round-
     await expect(page.locator("#targetAsset")).toHaveValue("cardboard");
     await page.locator("#targetRotation").fill("60");
     await page.locator("#targetRotation").blur();
+    await page.locator("#cameraOptions > summary").click();
     await page.locator("#pickFocus").click();
     await page.locator("#range").click({ position: { x: 200, y: 150 } });
     await expect(page.locator("#focusSummary")).toContainText("Focus:");

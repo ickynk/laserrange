@@ -40,6 +40,7 @@ test("Segment holds and manual progression work in the operator view past sessio
 }) => {
   await page.goto("/");
   await importScene(page, scene());
+  await page.locator("#cameraOptions > summary").click();
   await page.locator("#startRun").click();
   await expect(page.locator("#segmentStatus")).toContainText(
     "Holding at point 2",

@@ -216,7 +216,12 @@ export function validateScenario(s) {
     typeof (o.beep ?? true) !== "boolean" ||
     !finite(o.frequency ?? 880, 200, 2000) ||
     !finite(o.volume ?? 0.08, 0, 0.3) ||
-    !finite(o.beepDuration ?? 0.12, 0.05, 1)
+    !finite(o.beepDuration ?? 0.12, 0.05, 1) ||
+    typeof (o.shotAudio ?? true) !== "boolean" ||
+    !finite(o.shotVolume ?? 0.3, 0, 1) ||
+    typeof (o.ammoEnabled ?? false) !== "boolean" ||
+    !Number.isInteger(o.magazineSize ?? 15) ||
+    !finite(o.magazineSize ?? 15, 1, 200)
   )
     throw Error("Invalid countdown/audio settings.");
   return structuredClone(s);
