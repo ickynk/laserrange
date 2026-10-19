@@ -3,14 +3,19 @@ import * as THREE from "/vendor/three/build/three.module.js";
 export function barrierModel(b) {
   const g = new THREE.Group();
   const paint = new THREE.MeshStandardMaterial({
-    color: 0x596b78,
+    color: 0x496a79,
     roughness: 0.45,
     metalness: 0.35,
   });
   const concrete = new THREE.MeshStandardMaterial({
-    color: 0xa59f91,
+    color: 0xa8b6ba,
     roughness: 0.98,
   });
+  if (["wall", "window", "door"].includes(b.asset))
+    concrete.color.setHex(0xbac5c7);
+  if (["highway", "block", "pillar"].includes(b.asset))
+    concrete.color.setHex(0x89979d);
+  if (b.asset === "drum") paint.color.setHex(0x456d70);
   const dark = new THREE.MeshStandardMaterial({
     color: 0x171e24,
     roughness: 0.8,

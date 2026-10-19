@@ -23,6 +23,7 @@ No build step, database, paid service, or native mobile app is needed. Dependenc
 - Three.js 3D range with stationary and moving targets, visible armed/unarmed symbols, barriers, and viewpoint translation along an editable path.
 - Overhead drag-and-drop placement, numeric properties, target appearance windows, speed, ordered paths, and randomized armed/unarmed roles per run.
 - Full-volume mannequins, rotating targets, improved vehicles/walls/doorways/drums/ported barricades, and custom target-image upload with drag/zoom cropping onto cardboard.
+- Reactive dueling trees, Texas stars, knockdown steel, rubber hexagons, breakable bottles and stackable cans, with adjustable impact strength and elevation. Cool-toned materials and contact shadows improve depth cues.
 - Configurable scoring zones, target repeats/easing, camera speed/height/FOV and per-segment focus points with smooth view transitions.
 - Collapsible editor groups, independent desktop scrolling and alternating camera node/focus placement.
 - Synthesized gunshot/dry-click audio and an optional magazine counter with Reload prompt and assumed reload.
@@ -49,7 +50,7 @@ This is a working software alpha, **not a validated replacement for a dedicated 
 3. At 480×270 processing resolution, a small/faint dot can disappear during resampling. Real-device experiments must determine acceptable distance, image size, camera settings, and pulse duration.
 4. The initial 100 ms display/capture correction is an **unmeasured starting value**. Source frames are retained about 11 times per second and mobile timestamps approximate processing time. Scores on fast-moving targets can be wrong until timing is tuned. This is not frame-exact synchronization.
 5. A “miss” means a detected pulse on the calibrated screen that does not hit a valid target, including a blocked target. Shots outside the screen or undetected pulses cannot be counted.
-6. The scoring surface is the complete rectangular target board. Anatomical zones, firearm recognition, and automatic AI video scoring are not implemented.
+6. Hits use the rendered target geometry and configured local scoring zones. This is not anatomical injury modeling, firearm recognition, or automatic AI video scoring.
 7. Multiple shooters take turns. The system cannot identify simultaneous shooters using identical laser colors. Multi-blob frames are marked uncertain.
 8. YouTube does not expose source video pixels to this app. It has no source-frame deconfliction, so **every detected event requires manual review**. Its snapshots come from the rectified camera image, with the marker overlaid during review. Ads, restricted embedding, and playback controls can affect a run.
 
@@ -82,3 +83,16 @@ Camera processing runs on the phone. The phone sends coordinates, timestamps, st
 Scenarios persist only when saved in browser storage or exported as JSON. Session results and snapshots remain in memory and disappear when the page closes. The latest five runs are retained for turn-based review. Share files intentionally; there is no hosted scenario directory or user-account system.
 
 Host links contain an administrative secret. Phone pairing codes allow participation in a local session; do not publish them. Certificates and dependencies are excluded by `.gitignore`. No license for public redistribution is granted by this private project unless its owner adds one.
+
+## Reactive targets
+
+Add a target in the overhead editor and use **Target asset** to select **Steel · Dueling tree**, **Steel · Texas star**, **Steel · Knockdown plate**, **Rubber · Reactive hexagon**, **Glass bottle · Breakable**, **Tin can**, or **Tin cans · Pyramid stack**. Adjust width, height and rotation as usual. Reactive properties add **Elevation**, **Impact strength**, and **Stack rows** for the can-stack preset. Individual cans can also be placed above one another or on a barricade using elevation (the height of the object's bottom above the floor).
+
+- Tree paddles swing between sides and remain available for subsequent hits. Star plates detach individually; the remaining weight drives rotor motion. Knockdown steel stays down until the next session.
+- Rubber props roll/bounce, bottles break into fragments, and cans collide and topple. Bottle fragments and detached/downed steel do not earn further hits. Supports count as misses.
+- Start or Restart resets every prop. Camera-segment holds and backward navigation do not reset physics. Reactive appearance/repeat schedules use elapsed session time and retain the prop's state when it reappears; they do not respawn broken targets.
+- Physics replaces drawn movement paths for these targets. Custom uploaded/cropped target images remain available on the cardboard backer.
+
+Impact strength is a simulation control, not a caliber or measured energy setting. Cans, falling plates and fragments use rigid bodies; tree/star/knockdown mechanisms use constrained rotation. Collision shapes and barrier surfaces are simplified, and these motions have not been calibrated against real target hardware. Scenarios are limited to 160 reactive bodies to bound simulation cost. Shadows and physics add host graphics/CPU load; validate camera detection with the updated projected scene before relying on it.
+
+After updating an existing installation, run `npm ci`, restart the server, and refresh both operator and projector pages to load the new physics dependency.

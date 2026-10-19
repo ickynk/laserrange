@@ -131,3 +131,11 @@ Retest on the same setup/settings:
 5. Optionally enable Faster voice response on the phone. Compare responsiveness and unintended actions with final-only mode, including normal playback audio. Preliminary recognition can change after an action, and the browser may not provide early results.
 
 Live detection remains experimental. The original longer-duration and additional-device acceptance gates still apply; a short clean no-fire run does not certify a zero false-event rate.
+
+## Reactive targets and scene palette retest
+
+Keep the working phone position, sensitivity, filter and screen zero. First run a no-fire observation with the new scene for 100 seconds, including camera movement and reactive props already in motion. Compare false events with the prior palette; muted materials and shadows do not guarantee immunity to optical artifacts.
+
+Then test one of each reactive asset with deliberate, separately counted emissions. Check that tree paddles switch independently, star plates detach and the rotor responds, knockdowns stop scoring after falling, bottles break once, and cans/rubber move after hits. Shoot a steel support to confirm a miss. Check a stacked can arrangement and a can elevated onto a barricade. Include one paused camera segment: props should keep moving while the viewpoint holds. Restart must restore every object and clear its marks. Repeat through the separate projector window.
+
+Report observed extra/missing events, incorrect part hits, objects passing through surfaces, unexpected resets, and any FPS drop, along with the scenario JSON and impact-strength settings. Physical target motion remains an approximation until compared against real hardware; do not interpret the impact-strength slider as a caliber setting.

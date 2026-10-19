@@ -1,3 +1,4 @@
+import { reactiveAssets, isReactive } from "./reactive-types.js";
 export const defaultScenario = () => ({
   version: 1,
   name: "First light",
@@ -154,6 +155,36 @@ export function validateScenario(s) {
       t.path.some((p) => !point(p))
     )
       throw Error("Invalid target timing, type, speed, or path.");
+  let reactiveBudget = 0;
+  for (const t of s.targets.filter(isReactive)) {
+    if (
+      !finite(t.elevation ?? 0, 0, 5) ||
+      !finite(t.impactStrength ?? 1, 0.2, 3) ||
+      !Number.isInteger(t.stackRows ?? 3) ||
+      !finite(t.stackRows ?? 3, 1, 5)
+    )
+      throw Error(
+        "Invalid reactive elevation, impact strength, or stack rows.",
+      );
+    if (t.path.length)
+      throw Error(
+        "Reactive targets use physics; clear their movement path first.",
+      );
+    reactiveBudget +=
+      t.asset === "can-stack"
+        ? ((t.stackRows ?? 3) * ((t.stackRows ?? 3) + 1)) / 2
+        : t.asset === "glass-bottle"
+          ? 9
+          : t.asset === "dueling-tree"
+            ? 8
+            : t.asset === "texas-star"
+              ? 8
+              : 2;
+  }
+  if (reactiveBudget > 160)
+    throw Error(
+      "Range exceeds 160 reactive parts. Reduce stacks or target count.",
+    );
   for (const b of s.barriers)
     if (!finite(b.depth, 0.1, 10)) throw Error("Invalid barrier depth.");
   if (
@@ -308,6 +339,7 @@ export const barrierAssets = [
   "ports",
 ];
 export const targetAssets = [
+  ...reactiveAssets,
   "silhouette",
   "cardboard",
   "bullseye",

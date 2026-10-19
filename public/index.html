@@ -141,8 +141,51 @@
                     <option value="cardboard">Cardboard silhouette</option>
                     <option value="bullseye">Paper bullseye</option>
                     <option value="mannequin">Full 3D mannequin</option>
+                    <option value="dueling-tree">Steel · Dueling tree</option>
+                    <option value="texas-star">Steel · Texas star</option>
+                    <option value="drop-plate">Steel · Knockdown plate</option>
+                    <option value="rubber-hex">
+                      Rubber · Reactive hexagon
+                    </option>
+                    <option value="glass-bottle">
+                      Glass bottle · Breakable
+                    </option>
+                    <option value="tin-can">Tin can</option>
+                    <option value="can-stack">Tin cans · Pyramid stack</option>
                   </select></label
                 >
+                <div id="reactiveProperties" hidden>
+                  <label
+                    >Elevation above floor · m<input
+                      id="reactiveElevation"
+                      type="number"
+                      min="0"
+                      max="5"
+                      step="0.05"
+                  /></label>
+                  <label
+                    >Impact strength<input
+                      id="impactStrength"
+                      type="number"
+                      min="0.2"
+                      max="3"
+                      step="0.1"
+                  /></label>
+                  <label id="stackRowsLabel"
+                    >Stack rows<input
+                      id="stackRows"
+                      type="number"
+                      min="1"
+                      max="5"
+                      step="1"
+                  /></label>
+                  <p class="hint">
+                    Physics props use gravity and collisions instead of movement
+                    paths. Restart the session to reset them. Strength is a
+                    simulation setting, not a firearm caliber. Elevation lets
+                    you place cans on barriers or other cans.
+                  </p>
+                </div>
                 <label
                   >Target role<select id="kind">
                     <option value="shoot">Shoot · armed symbol</option>

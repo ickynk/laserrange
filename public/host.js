@@ -1,3 +1,4 @@
+import { isReactive, reactiveDefaults } from "./core/reactive-types.js";
 import { installHealthPanel } from "./core/health-panel.js";
 import { drawTestPoint } from "./core/range-health.js";
 import { applyRangeCommand } from "./core/range-command.js";
@@ -199,6 +200,12 @@ function properties() {
     $("barrierAsset").value = t.asset ?? "block";
     $("barrierRotation").value = t.rotation ?? 0;
   } else {
+    $("reactiveProperties").hidden = !isReactive(t);
+    $("targetPath").disabled = isReactive(t);
+    $("reactiveElevation").value = t.elevation ?? 0;
+    $("impactStrength").value = t.impactStrength ?? 1;
+    $("stackRows").value = t.stackRows ?? 3;
+    $("stackRowsLabel").hidden = t.asset !== "can-stack";
     $("targetRotation").value = t.rotation ?? 0;
     $("removeTargetImage").disabled = !t.image;
     $("targetAsset").value = t.asset ?? "silhouette";
@@ -276,6 +283,9 @@ for (const [id, key] of [
         : Number($(id).value);
     });
 for (const [id, key] of [
+  ["reactiveElevation", "elevation"],
+  ["impactStrength", "impactStrength"],
+  ["stackRows", "stackRows"],
   ["targetAsset", "asset"],
   ["targetRotation", "rotation"],
   ["targetEasing", "easing"],
@@ -291,6 +301,10 @@ for (const [id, key] of [
       if (key === "asset" && object().kind && object().asset === "mannequin") {
         object().width = 0.75;
         object().height = 1.8;
+      }
+      if (key === "asset" && isReactive(object())) {
+        [object().width, object().height] = reactiveDefaults[object().asset];
+        object().path = [];
       }
       if (key === "repeatEvery" && object().repeatEvery > 0)
         object().visibleFor = Math.min(
@@ -1144,7 +1158,7 @@ function recordShot(m, demo = false) {
   const synced = h && Math.abs(h.time - capture) < 200;
   let score = { result: "review", target: null };
   if (mode === "3d" && synced && m.confidence === "high")
-    score = range.score(m.x, m.y, h.elapsed);
+    score = range.score(m.x, m.y, h.elapsed, h.physicsTime ?? h.elapsed);
   if (outsideScreen(m)) score = { result: "miss", target: null };
   const shot = {
     ...m,
@@ -1157,6 +1171,7 @@ function recordShot(m, demo = false) {
   acceptShot(shot);
 }
 function acceptShot(shot) {
+  range.react(shot.reaction);
   shots.push(shot);
   if (shots.length > 500) {
     shots.shift();
@@ -1338,7 +1353,11 @@ function animate(t) {
     : running
       ? timeline.time(now())
       : currentTime;
-  if (!projection?.connected || range.editor) range.render(currentTime);
+  if (!projection?.connected || range.editor)
+    range.render(
+      currentTime,
+      running ? Math.max(0, (now() - started) / 1000) : range.physicsTime,
+    );
   if (running) {
     $("clock").textContent = stamp(Math.min(currentTime, scenario.duration));
     if (!timeline?.enabled && currentTime >= scenario.duration) stopRun();
@@ -1378,7 +1397,13 @@ function animate(t) {
     refctx.drawImage(drawable, (480 - w) / 2, (270 - h) / 2, w, h);
   } else refctx.drawImage(drawable, 0, 0, 480, 270);
   const image = reference.toDataURL("image/jpeg", 0.75),
-    frame = { type: "reference", time: now(), elapsed: currentTime, image };
+    frame = {
+      type: "reference",
+      time: now(),
+      elapsed: currentTime,
+      physicsTime: range.physicsTime,
+      image,
+    };
   history.push(frame);
   if (history.length > 35) history.shift();
   if (phoneConnected) channel?.send(frame);

@@ -112,6 +112,29 @@ export function createRangeServer({
       base = resolve(root, "node_modules/three");
       relative = relative.slice("/vendor/three".length);
     }
+    if (relative.startsWith("/vendor/cannon/")) {
+      base = resolve(root, "node_modules/cannon-es");
+      relative = relative.slice("/vendor/cannon".length);
+    }
+    // Share the same simulation module with Node tests and the no-build browser.
+    if (relative === "/core/reactive-world.js") {
+      const source = readFileSync(
+        resolve(root, "public/core/reactive-world.js"),
+        "utf8",
+      );
+      res.writeHead(200, { "Content-Type": "text/javascript" });
+      return res.end(
+        source
+          .replace(
+            "from 'cannon-es'",
+            "from '/vendor/cannon/dist/cannon-es.js'",
+          )
+          .replace(
+            'from "cannon-es"',
+            'from "/vendor/cannon/dist/cannon-es.js"',
+          ),
+      );
+    }
     if (relative === "/") relative = "/index.html";
     if (relative === "/phone") relative = "/phone.html";
     let file;

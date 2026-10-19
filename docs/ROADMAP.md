@@ -40,6 +40,14 @@
 - Completed/Incomplete/Interrupted results and the latest 12 aggregate reports retained in the operator browser.
 - Detector thresholds, synchronization and calibration behavior unchanged; real hardware measurements still required.
 
+## Completed: reactive range props and depth cues
+
+- Dueling tree, gravity-driven Texas star, knockdown steel, bouncing rubber hexagon, breakable bottles, individual cans and triangular can stacks.
+- Adjustable impact strength, elevation, stack rows and rotation; persistent part-attached marks, reset on a new run, and elapsed-time physics through camera holds.
+- Historical physics poses for delayed shot scoring in both operator and projector modes.
+- Distinct cool-toned sky, floor, walls and barriers, plus contact shadows.
+- Next validation: physical detector retest against new materials and moving debris; real target motion comparison before claiming calibrated dynamics.
+
 ## Hardware phase: optical reliability
 
 1. Collect real camera fixtures for TitanX and the exact DryFireMag-associated laser setup, on iOS Safari and Android Chrome.

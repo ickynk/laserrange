@@ -252,3 +252,7 @@ Laser detection now tracks an illuminated spot as it moves/fades and retains the
 Range Health shows a cumulative **Continuation / fragment candidates suppressed** counter. This counts rejected candidate blobs, not independently verified duplicate shots; several candidates may belong to one emission. It resets with detector reset and does not prove accuracy. Video rejection diagnostics now include **moving background** for color that vanishes next to a new candidate.
 
 Under the phone's **Voice range controls**, **Faster voice response** is optional and off by default. It requests preliminary recognition and acts on an exact command unchanged for 250 ms. Changing or incomplete text cancels the pending action; its later final result cannot execute the same command again. Preliminary text can still be revised after execution, so use final-only recognition if early actions are undesirable. The 250 ms interval begins after a preliminary result arrives; it is not a guarantee of total voice latency. Camera, laser controls and normal final-only recognition remain available.
+
+### Updating for reactive targets
+
+Run `npm ci` after pulling this revision, then restart the server and refresh operator/projector tabs. The new cannon-es physics dependency is served locally. Use **Target asset** in the overhead editor to select the reactive props; see the README's Reactive targets section for elevation, strength and stacking controls. Recheck no-fire detection with your projector after the scene palette/shadow change.

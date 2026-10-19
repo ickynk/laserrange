@@ -393,7 +393,7 @@ function record(m, isDemo = false) {
     Math.abs(h.time - capture) < 200 &&
     m.confidence === "high"
   )
-    score = range.score(m.x, m.y, h.elapsed);
+    score = range.score(m.x, m.y, h.elapsed, h.physicsTime ?? h.elapsed);
   if (outsideScreen(m)) score = { result: "miss", target: null };
   const shot = {
     ...m,
@@ -403,6 +403,7 @@ function record(m, isDemo = false) {
     demo: isDemo,
     image: mode === "youtube" ? m.image : h?.image || m.image,
   };
+  range.react(score.reaction);
   if (score.impact) range.addImpact(score.impact);
   else {
     const dot = document.createElement("span");
@@ -496,7 +497,11 @@ function animate(t) {
   });
   $("simulatorControls").hidden = calibrating;
   $("simulatorInput").hidden = calibrating;
-  if (mode === "3d" && !calibrating) range.render(elapsed);
+  if (mode === "3d" && !calibrating)
+    range.render(
+      elapsed,
+      running ? Math.max(0, (now() - started) / 1000) : range.physicsTime,
+    );
   if (running && !timeline.enabled && elapsed >= scenario.duration) {
     elapsed = Math.max(0, scenario.duration - 0.001);
     stop();
@@ -542,6 +547,7 @@ function animate(t) {
     type: "reference",
     time: now(),
     elapsed,
+    physicsTime: range.physicsTime,
     image: ref.toDataURL("image/jpeg", 0.75),
   };
   history.push(frame);
