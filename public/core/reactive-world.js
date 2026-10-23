@@ -1,6 +1,7 @@
 import { targetActive } from "./scenario.js";
 import * as C from "cannon-es";
 import { isReactive } from "./reactive-types.js";
+import { dodecaFaces, dodecaVertices } from "./dodecahedron.js";
 const DT = 1 / 120;
 const v = (x = 0, y = 0, z = 0) => new C.Vec3(x, y, z);
 // SI-scale rigid bodies plus one-degree-of-freedom steel mechanisms. Shot
@@ -17,7 +18,25 @@ export class ReactiveWorld {
     this.world.solver.iterations = 16;
     this.world.defaultContactMaterial.friction = 0.45;
     this.world.defaultContactMaterial.restitution = 0.12;
-    const floor = new C.Body({ mass: 0, shape: new C.Plane() });
+    this.surfaceMaterial = new C.Material("range-surfaces");
+    this.rubberMaterial = new C.Material("reactive-rubber");
+    this.world.addContactMaterial(
+      new C.ContactMaterial(this.surfaceMaterial, this.rubberMaterial, {
+        friction: 0.65,
+        restitution: 0.6,
+      }),
+    );
+    this.world.addContactMaterial(
+      new C.ContactMaterial(this.rubberMaterial, this.rubberMaterial, {
+        friction: 0.65,
+        restitution: 0.6,
+      }),
+    );
+    const floor = new C.Body({
+      mass: 0,
+      shape: new C.Plane(),
+      material: this.surfaceMaterial,
+    });
     floor.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
     this.world.addBody(floor);
     for (const b of scenario.barriers) {
@@ -25,6 +44,7 @@ export class ReactiveWorld {
         const a = ((b.rotation || 0) * Math.PI) / 180,
           body = new C.Body({
             mass: 0,
+            material: this.surfaceMaterial,
             shape: new C.Box(v(w / 2, h / 2, d / 2)),
           });
         body.position.set(
@@ -64,7 +84,12 @@ export class ReactiveWorld {
     } = {},
   ) {
     let collision;
-    if (
+    if (shape === "dodeca")
+      collision = new C.ConvexPolyhedron({
+        vertices: dodecaVertices(size).map((p) => v(...p)),
+        faces: dodecaFaces.map((f) => [...f]),
+      });
+    else if (
       shape === "cylinder" ||
       shape === "can" ||
       shape === "bottle" ||
@@ -80,13 +105,14 @@ export class ReactiveWorld {
     const body = new C.Body({
       mass,
       shape: collision,
+      material: this.surfaceMaterial,
       linearDamping: 0.12,
       angularDamping: 0.18,
     });
     body.position.copy(pos);
     if (rotation) body.quaternion.copy(rotation);
     if (material === "rubber") {
-      body.material = new C.Material({ friction: 0.65, restitution: 0.6 });
+      body.material = this.rubberMaterial;
       body.angularDamping = 0.32;
     }
     const p = {
@@ -97,6 +123,7 @@ export class ReactiveWorld {
       size,
       body,
       mass,
+      hits: 0,
       active,
       score,
       material,
@@ -120,14 +147,18 @@ export class ReactiveWorld {
         score: false,
         material: "frame",
       });
-    if (["dueling-tree", "texas-star", "drop-plate"].includes(t.asset)) {
+    if (
+      ["dueling-tree", "texas-star", "drop-plate", "slide-plate"].includes(
+        t.asset,
+      )
+    ) {
       staticBox("base", [t.width * 0.7, 0.08, 0.65], 0, 0.04);
       if (t.asset !== "drop-plate")
         staticBox("post", [0.09, t.height, 0.09], 0, t.height / 2, -0.15);
     }
     if (t.asset === "dueling-tree") {
       const arm = t.width * 0.34,
-        r = t.width * 0.17;
+        r = Math.min(t.width * 0.13, t.height * 0.13 * 0.42);
       for (let i = 0; i < 6; i++) {
         const part = this.part(
           t,
@@ -207,13 +238,34 @@ export class ReactiveWorld {
         parts: [plate],
         released: false,
       });
-    } else if (t.asset === "rubber-hex") {
+    } else if (t.asset === "slide-plate") {
+      const plate = this.part(
+        t,
+        "plate",
+        "box",
+        [t.width, t.width, 0.045],
+        at(0, t.height - t.width / 2, 0.08),
+        { mass: 3, rotation: q, material: "plate" },
+      );
+      plate.body.type = C.Body.KINEMATIC;
+      this.joints.push({
+        kind: "slide",
+        t,
+        q,
+        origin: plate.body.position.clone(),
+        parts: [plate],
+        released: false,
+        distance: 0,
+        speed: 0,
+        travel: t.height - t.width - 0.08,
+      });
+    } else if (["rubber-hex", "rubber-dodeca"].includes(t.asset)) {
       this.part(
         t,
-        "hex",
-        "hex",
-        [t.width, t.height * 0.65, t.width],
-        at(0, t.height * 0.325),
+        "dodeca",
+        "dodeca",
+        [t.width, t.height, t.width],
+        at(0, t.height / 2),
         { mass: 0.45, rotation: q, material: "rubber" },
       );
     } else if (t.asset === "glass-bottle") {
@@ -254,7 +306,14 @@ export class ReactiveWorld {
   }
   placeJoints() {
     for (const j of this.joints) {
-      if (j.kind === "star") {
+      if (j.kind === "slide") {
+        const body = j.parts[0].body;
+        body.position.copy(j.origin.vadd(v(0, -j.distance, 0)));
+        body.quaternion.copy(j.q);
+        body.velocity.setZero();
+        body.angularVelocity.setZero();
+        body.aabbNeedsUpdate = true;
+      } else if (j.kind === "star") {
         j.rotor.body.quaternion.copy(
           j.q.mult(new C.Quaternion().setFromAxisAngle(v(0, 0, 1), -j.angle)),
         );
@@ -327,6 +386,12 @@ export class ReactiveWorld {
           j.angle = Math.PI;
           j.omega = -Math.abs(j.omega) * 0.12;
         }
+      } else if (j.kind === "slide") {
+        if (j.released && j.distance < j.travel) {
+          j.speed += 9.81 * DT;
+          j.distance = Math.min(j.travel, j.distance + j.speed * DT);
+          if (j.distance === j.travel) j.speed = 0;
+        }
       } else if (j.released) {
         j.omega +=
           ((9.81 / j.arm) * Math.sin(j.angle + 0.03) - j.omega * 0.6) * DT;
@@ -366,7 +431,7 @@ export class ReactiveWorld {
     if (!p?.active || !p.score) return false;
     const j = this.joints.find((j) => j.parts.includes(p));
     if (j?.kind === "star") return j.attached[j.parts.indexOf(p)];
-    if (j?.kind === "drop") return !j.released;
+    if (["drop", "slide"].includes(j?.kind)) return !j.released;
     return true;
   }
   apply(event) {
@@ -375,7 +440,16 @@ export class ReactiveWorld {
     const t = this.scenario.targets.find((t) => t.id === p.targetId),
       strength = t.impactStrength ?? 1;
     const j = this.joints.find((j) => j.parts.includes(p));
+    if (j) {
+      p.hits++;
+      if (p.hits < (t.hitsToFall ?? 1)) return;
+    }
+    if (j?.kind === "slide") {
+      j.released = true;
+      return;
+    }
     if (j?.kind === "tree") {
+      p.hits = 0;
       j.omega += (j.angle < Math.PI / 2 ? 1 : -1) * 7 * strength;
       return;
     }
@@ -437,9 +511,9 @@ export class ReactiveWorld {
       return;
     }
     const impulse = direction.scale(
-      (p.shape === "can" ? 0.35 : p.shape === "hex" ? 0.9 : 1.3) * strength,
+      (p.shape === "can" ? 0.35 : p.shape === "dodeca" ? 0.9 : 1.3) * strength,
     );
-    if (p.shape === "hex") impulse.y += 0.45 * strength;
+    if (p.shape === "dodeca") impulse.y += 0.45 * strength;
     p.body.applyImpulse(impulse, point.vsub(p.body.position));
   }
   impact(event) {
@@ -459,10 +533,13 @@ export class ReactiveWorld {
         angle: j.angle,
         omega: j.omega,
         released: j.released,
+        distance: j.distance,
+        speed: j.speed,
         attached: j.attached?.slice(),
       })),
       bodies: this.parts.map((p) => ({
         active: p.active,
+        hits: p.hits,
         type: p.body.type,
         mask: p.body.collisionFilterMask,
         p: p.body.position.toArray(),
@@ -488,6 +565,7 @@ export class ReactiveWorld {
       const b = p.body,
         a = s.bodies[i];
       p.active = a.active;
+      p.hits = a.hits;
       b.type = a.type;
       b.collisionFilterMask = a.mask;
       b.position.set(...a.p);

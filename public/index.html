@@ -144,9 +144,10 @@
                     <option value="dueling-tree">Steel · Dueling tree</option>
                     <option value="texas-star">Steel · Texas star</option>
                     <option value="drop-plate">Steel · Knockdown plate</option>
-                    <option value="rubber-hex">
-                      Rubber · Reactive hexagon
+                    <option value="slide-plate">
+                      Steel · Sliding post plate
                     </option>
+                    <option value="rubber-dodeca">Rubber · Dodecahedron</option>
                     <option value="glass-bottle">
                       Glass bottle · Breakable
                     </option>
@@ -154,6 +155,69 @@
                     <option value="can-stack">Tin cans · Pyramid stack</option>
                   </select></label
                 >
+                <details id="cardboardOptions" hidden>
+                  <summary>Cardboard sides and turning</summary>
+                  <label
+                    >Back image<select id="backImageMode">
+                      <option value="blank">Blank cardboard</option>
+                      <option value="repeat">Repeat front image</option>
+                      <option value="separate">Separate back image</option>
+                    </select></label
+                  >
+                  <div id="backImageUpload" hidden>
+                    <label
+                      >Back image · upload and crop<input
+                        id="backTargetImage"
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                    /></label>
+                    <button id="removeBackTargetImage">
+                      Remove back image
+                    </button>
+                  </div>
+                  <label
+                    >Back-side scoring role<select id="backRole">
+                      <option value="same">Same as front</option>
+                      <option value="shoot">Shoot</option>
+                      <option value="no-shoot">No-shoot</option>
+                    </select></label
+                  >
+                  <label
+                    ><input id="turnEnabled" type="checkbox" /> Turn between
+                    sides during session</label
+                  >
+                  <label
+                    >Turn angle · degrees<input
+                      id="turnAngle"
+                      type="number"
+                      min="90"
+                      max="180"
+                      step="5"
+                  /></label>
+                  <label
+                    >Hold at each angle · seconds<input
+                      id="turnHold"
+                      type="number"
+                      min="0.1"
+                      max="60"
+                      step="0.1"
+                  /></label>
+                  <label
+                    >Time to turn · seconds<input
+                      id="turnDuration"
+                      type="number"
+                      min="0.1"
+                      max="10"
+                      step="0.1"
+                  /></label>
+                  <p class="hint">
+                    180° presents the opposite image; 90° turns between facing
+                    and edge-on. Target rotation sets the starting angle. Turns
+                    alternate smoothly and continue during camera holds. Choose
+                    the scoring role to match each image; images are not
+                    classified automatically.
+                  </p>
+                </details>
                 <div id="reactiveProperties" hidden>
                   <label
                     >Elevation above floor · m<input
@@ -171,6 +235,20 @@
                       max="3"
                       step="0.1"
                   /></label>
+                  <label id="hitsToFallLabel"
+                    >Hits before fall / swing<input
+                      id="hitsToFall"
+                      type="number"
+                      min="1"
+                      max="20"
+                      step="1"
+                  /></label>
+                  <p id="steelHint" class="hint">
+                    Hit count applies to each plate. Tree counts reset after
+                    each swing. Sliding plate width sets diameter; height sets
+                    the post's total height. Restart restores all plates and
+                    counts.
+                  </p>
                   <label id="stackRowsLabel"
                     >Stack rows<input
                       id="stackRows"

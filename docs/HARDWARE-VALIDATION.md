@@ -139,3 +139,10 @@ Keep the working phone position, sensitivity, filter and screen zero. First run 
 Then test one of each reactive asset with deliberate, separately counted emissions. Check that tree paddles switch independently, star plates detach and the rotor responds, knockdowns stop scoring after falling, bottles break once, and cans/rubber move after hits. Shoot a steel support to confirm a miss. Check a stacked can arrangement and a can elevated onto a barricade. Include one paused camera segment: props should keep moving while the viewpoint holds. Restart must restore every object and clear its marks. Repeat through the separate projector window.
 
 Report observed extra/missing events, incorrect part hits, objects passing through surfaces, unexpected resets, and any FPS drop, along with the scenario JSON and impact-strength settings. Physical target motion remains an approximation until compared against real hardware; do not interpret the impact-strength slider as a caliber setting.
+
+
+### Steel thresholds and cardboard sides
+
+Set each steel type to three hits and verify the first two strikes leave the plate active, with the third releasing it (or swinging a tree paddle). Check independent Texas-star/tree plate counts, no additional scoring after steel falls, and a fresh count on restart. Shoot a dodecahedron at different points and compare tumble direction. Swing neighboring tree paddles to the same side and confirm clearance. Sliding steel should descend along its post to the base.
+
+Upload visibly distinct front/back images, set different face roles, and run a 180° turn with a generous hold. Verify image orientation, face-specific hit/no-shoot results, and marks remaining on the struck face. Try a 90° turn from an edge-on starting angle, then repeat with a held camera segment and in the separate projector. Report any placement errors specifically during turns alongside the configured turn duration; display/camera latency still limits optical accuracy for moving faces.

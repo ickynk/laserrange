@@ -1,4 +1,8 @@
-import { isReactive, reactiveDefaults } from "./core/reactive-types.js";
+import {
+  isReactive,
+  isSteel,
+  reactiveDefaults,
+} from "./core/reactive-types.js";
 import { installHealthPanel } from "./core/health-panel.js";
 import { drawTestPoint } from "./core/range-health.js";
 import { applyRangeCommand } from "./core/range-command.js";
@@ -206,9 +210,22 @@ function properties() {
     $("impactStrength").value = t.impactStrength ?? 1;
     $("stackRows").value = t.stackRows ?? 3;
     $("stackRowsLabel").hidden = t.asset !== "can-stack";
+    $("hitsToFallLabel").hidden = $("steelHint").hidden = !isSteel(t);
+    $("hitsToFall").value = t.hitsToFall ?? 1;
+    $("cardboardOptions").hidden = t.asset !== "cardboard";
+    $("backImageMode").value =
+      t.backImageMode ?? (t.image ? "blank" : "repeat");
+    $("backImageUpload").hidden = $("backImageMode").value !== "separate";
+    $("removeBackTargetImage").disabled = !t.backImage;
+    $("backRole").value = t.backRole ?? "same";
+    $("turnEnabled").checked = t.turn?.enabled ?? false;
+    $("turnAngle").value = t.turn?.angle ?? 180;
+    $("turnHold").value = t.turn?.hold ?? 2;
+    $("turnDuration").value = t.turn?.duration ?? 0.5;
     $("targetRotation").value = t.rotation ?? 0;
     $("removeTargetImage").disabled = !t.image;
-    $("targetAsset").value = t.asset ?? "silhouette";
+    $("targetAsset").value =
+      t.asset === "rubber-hex" ? "rubber-dodeca" : (t.asset ?? "silhouette");
     $("targetEasing").value = t.easing ?? "linear";
     $("repeatEvery").value = t.repeatEvery ?? 0;
     $("visibleFor").value = t.visibleFor ?? (t.repeatEvery || 1);
@@ -285,6 +302,7 @@ for (const [id, key] of [
 for (const [id, key] of [
   ["reactiveElevation", "elevation"],
   ["impactStrength", "impactStrength"],
+  ["hitsToFall", "hitsToFall"],
   ["stackRows", "stackRows"],
   ["targetAsset", "asset"],
   ["targetRotation", "rotation"],
@@ -533,26 +551,48 @@ $("focusHeight").onchange = () =>
       scenario.cameraSegments?.[Number($("cameraSegment").value)]?.focus;
     if (focus) focus.y = Number($("focusHeight").value);
   });
-$("targetImage").onchange = (e) => {
-  const file = e.target.files[0],
-    id = selected,
-    t = object();
-  e.target.value = "";
-  if (!file || !t?.kind || running) return;
-  openTargetCrop(
-    file,
-    t.width / t.height,
-    (image) =>
-      edit(() => {
-        const target = scenario.targets.find((t) => t.id === id);
-        if (!target) throw Error("Target was removed.");
-        target.image = image;
-        target.asset = "cardboard";
-      }),
-    notice,
-  );
-};
+for (const [input, key] of [
+  ["targetImage", "image"],
+  ["backTargetImage", "backImage"],
+]) {
+  $(input).onchange = (e) => {
+    const file = e.target.files[0],
+      id = selected,
+      t = object();
+    e.target.value = "";
+    if (!file || !t?.kind || running) return;
+    openTargetCrop(
+      file,
+      t.width / t.height,
+      (image) =>
+        edit(() => {
+          const target = scenario.targets.find((t) => t.id === id);
+          if (!target) throw Error("Target was removed.");
+          target[key] = image;
+          target.asset = "cardboard";
+          if (key === "backImage") target.backImageMode = "separate";
+        }),
+      notice,
+    );
+  };
+}
 $("removeTargetImage").onclick = () => edit(() => delete object().image);
+$("removeBackTargetImage").onclick = () =>
+  edit(() => delete object().backImage);
+for (const key of ["backImageMode", "backRole"])
+  $(key).onchange = () => edit(() => (object()[key] = $(key).value));
+for (const [id, key] of [
+  ["turnEnabled", "enabled"],
+  ["turnAngle", "angle"],
+  ["turnHold", "hold"],
+  ["turnDuration", "duration"],
+])
+  $(id).onchange = () =>
+    edit(() => {
+      object().turn ||= {};
+      object().turn[key] =
+        key === "enabled" ? $(id).checked : Number($(id).value);
+    });
 $("viewToggle").onclick = () => {
   if (running) return notice("End the session to edit.");
   range.editor = !range.editor;

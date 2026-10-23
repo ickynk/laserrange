@@ -372,6 +372,7 @@ export function targetModel(t, kind) {
   }
   const map = new THREE.CanvasTexture(canvas);
   map.colorSpace = THREE.SRGBColorSpace;
+  if (t.asset === "cardboard") return cardboardBacker(t, map);
   const face = new THREE.Mesh(
     new THREE.BoxGeometry(t.width, t.height, 0.08),
     new THREE.MeshStandardMaterial({ map, roughness: 0.92 }),
@@ -440,8 +441,10 @@ function mannequinModel(t, kind) {
   return g;
 }
 function imageBacker(t) {
-  const g = new THREE.Group(),
-    canvas = document.createElement("canvas");
+  return cardboardBacker(t, imageTexture(t.image, t.zones));
+}
+function imageTexture(source, zones) {
+  const canvas = document.createElement("canvas");
   canvas.width = 512;
   canvas.height = 768;
   const c = canvas.getContext("2d");
@@ -449,26 +452,13 @@ function imageBacker(t) {
   c.fillRect(0, 0, 512, 768);
   const map = new THREE.CanvasTexture(canvas);
   map.colorSpace = THREE.SRGBColorSpace;
-  const backing = new THREE.Mesh(
-    new THREE.BoxGeometry(t.width, t.height, 0.06),
-    new THREE.MeshStandardMaterial({ color: 0xad9270, roughness: 0.95 }),
-  );
-  backing.name = "backer";
-  g.add(backing);
-  const face = new THREE.Mesh(
-    new THREE.PlaneGeometry(t.width, t.height),
-    new THREE.MeshStandardMaterial({ map, roughness: 0.9 }),
-  );
-  face.position.z = 0.031;
-  face.name = "image";
-  g.add(face);
   let disposed = false;
   map.addEventListener("dispose", () => (disposed = true));
   const image = new Image();
   image.onload = () => {
     if (disposed) return;
     c.drawImage(image, 0, 0, 512, 768);
-    for (const z of [...(t.zones || [])].reverse()) {
+    for (const z of [...(zones || [])].reverse()) {
       c.strokeStyle = "#fff2ce";
       c.lineWidth = 3;
       c.beginPath();
@@ -493,6 +483,42 @@ function imageBacker(t) {
     }
     map.needsUpdate = true;
   };
-  image.src = t.image;
+  image.src = source;
+  return map;
+}
+function cardboardBacker(t, frontMap) {
+  const g = new THREE.Group(),
+    thickness = t.image ? 0.06 : 0.08;
+  const backing = new THREE.Mesh(
+    new THREE.BoxGeometry(t.width, t.height, thickness),
+    new THREE.MeshStandardMaterial({ color: 0xad9270, roughness: 0.95 }),
+  );
+  backing.name = "backer";
+  g.add(backing);
+  const mode = t.backImageMode ?? (t.image ? "blank" : "repeat");
+  const backMap =
+    mode === "repeat"
+      ? frontMap
+      : mode === "separate" && t.backImage
+        ? imageTexture(t.backImage, t.zones)
+        : null;
+  for (const [side, map] of [
+    ["front", frontMap],
+    ["back", backMap],
+  ]) {
+    const face = new THREE.Mesh(
+      new THREE.PlaneGeometry(t.width, t.height),
+      new THREE.MeshStandardMaterial({
+        map,
+        color: map ? 0xffffff : 0xad9270,
+        roughness: 0.9,
+      }),
+    );
+    face.position.z = (side === "front" ? 1 : -1) * (thickness / 2 + 0.001);
+    face.rotation.y = side === "front" ? 0 : Math.PI;
+    face.name = side === "front" ? (t.image ? "image" : "face") : "back-image";
+    face.userData.targetSide = side;
+    g.add(face);
+  }
   return g;
 }

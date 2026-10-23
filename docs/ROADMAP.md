@@ -42,7 +42,9 @@
 
 ## Completed: reactive range props and depth cues
 
-- Dueling tree, gravity-driven Texas star, knockdown steel, bouncing rubber hexagon, breakable bottles, individual cans and triangular can stacks.
+- Dueling tree, gravity-driven Texas star, knockdown steel, bouncing rubber dodecahedron, breakable bottles, individual cans and triangular can stacks.
+- Sliding post steel, per-plate hits before falling/swinging, and non-overlapping tree plate spacing.
+- Independent front/back cardboard crops, back-side roles and eased 90–180° timed turns.
 - Adjustable impact strength, elevation, stack rows and rotation; persistent part-attached marks, reset on a new run, and elapsed-time physics through camera holds.
 - Historical physics poses for delayed shot scoring in both operator and projector modes.
 - Distinct cool-toned sky, floor, walls and barriers, plus contact shadows.

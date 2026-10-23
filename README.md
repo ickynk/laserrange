@@ -23,7 +23,7 @@ No build step, database, paid service, or native mobile app is needed. Dependenc
 - Three.js 3D range with stationary and moving targets, visible armed/unarmed symbols, barriers, and viewpoint translation along an editable path.
 - Overhead drag-and-drop placement, numeric properties, target appearance windows, speed, ordered paths, and randomized armed/unarmed roles per run.
 - Full-volume mannequins, rotating targets, improved vehicles/walls/doorways/drums/ported barricades, and custom target-image upload with drag/zoom cropping onto cardboard.
-- Reactive dueling trees, Texas stars, knockdown steel, rubber hexagons, breakable bottles and stackable cans, with adjustable impact strength and elevation. Cool-toned materials and contact shadows improve depth cues.
+- Reactive dueling trees, Texas stars, knockdown/sliding steel, rubber dodecahedrons, breakable bottles and stackable cans, with adjustable impact strength and elevation. Cool-toned materials and contact shadows improve depth cues.
 - Configurable scoring zones, target repeats/easing, camera speed/height/FOV and per-segment focus points with smooth view transitions.
 - Collapsible editor groups, independent desktop scrolling and alternating camera node/focus placement.
 - Synthesized gunshot/dry-click audio and an optional magazine counter with Reload prompt and assumed reload.
@@ -86,13 +86,21 @@ Host links contain an administrative secret. Phone pairing codes allow participa
 
 ## Reactive targets
 
-Add a target in the overhead editor and use **Target asset** to select **Steel · Dueling tree**, **Steel · Texas star**, **Steel · Knockdown plate**, **Rubber · Reactive hexagon**, **Glass bottle · Breakable**, **Tin can**, or **Tin cans · Pyramid stack**. Adjust width, height and rotation as usual. Reactive properties add **Elevation**, **Impact strength**, and **Stack rows** for the can-stack preset. Individual cans can also be placed above one another or on a barricade using elevation (the height of the object's bottom above the floor).
+Add a target in the overhead editor and use **Target asset** to select **Steel · Dueling tree**, **Steel · Texas star**, **Steel · Knockdown plate**, **Steel · Sliding post plate**, **Rubber · Dodecahedron**, **Glass bottle · Breakable**, **Tin can**, or **Tin cans · Pyramid stack**. Adjust width, height and rotation as usual. Reactive properties add **Elevation**, **Impact strength**, and **Stack rows** for the can-stack preset. Individual cans can also be placed above one another or on a barricade using elevation (the height of the object's bottom above the floor).
 
-- Tree paddles swing between sides and remain available for subsequent hits. Star plates detach individually; the remaining weight drives rotor motion. Knockdown steel stays down until the next session.
-- Rubber props roll/bounce, bottles break into fragments, and cans collide and topple. Bottle fragments and detached/downed steel do not earn further hits. Supports count as misses.
+- Tree paddles swing between sides and remain available for subsequent hits; their diameters are constrained by vertical spacing so adjacent plates cannot overlap. Star plates detach individually; the remaining weight drives rotor motion. Knockdown steel stays down until the next session. Sliding plates descend vertically along their post and stop at its base.
+- Rubber dodecahedrons use a matching twelve-pentagon collision hull; off-center impacts and changing contact faces produce different tumbles. Existing saved `rubber-hex` targets automatically render and simulate as dodecahedrons. Rubber props roll/bounce, bottles break into fragments, and cans collide and topple. Bottle fragments and detached/downed steel do not earn further hits. Supports count as misses.
 - Start or Restart resets every prop. Camera-segment holds and backward navigation do not reset physics. Reactive appearance/repeat schedules use elapsed session time and retain the prop's state when it reappears; they do not respawn broken targets.
 - Physics replaces drawn movement paths for these targets. Custom uploaded/cropped target images remain available on the cardboard backer.
 
 Impact strength is a simulation control, not a caliber or measured energy setting. Cans, falling plates and fragments use rigid bodies; tree/star/knockdown mechanisms use constrained rotation. Collision shapes and barrier surfaces are simplified, and these motions have not been calibrated against real target hardware. Scenarios are limited to 160 reactive bodies to bound simulation cost. Shadows and physics add host graphics/CPU load; validate camera detection with the updated projected scene before relying on it.
 
 After updating an existing installation, run `npm ci`, restart the server, and refresh both operator and projector pages to load the new physics dependency.
+
+### Steel hit counts and two-sided cardboard
+
+For steel, set **Hits before fall / swing** (1–20, default 1). Each plate has its own counter. Knockdowns, sliding plates, and Texas-star plates stay active until that count is reached; tree paddles swing when the count is reached and start a fresh count for the next swing. Restart resets all counters. For sliding steel, width sets plate diameter and height sets total post height; height must exceed diameter by at least 0.1 m.
+
+For cardboard, open **Cardboard sides and turning**. Choose a blank back, repeat the front image, or upload/crop a separate back image. Both images travel with saved/shared ranges. Set the back scoring role to Same as front, Shoot, or No-shoot to match the image; the app does not identify image content automatically. Scoring zones apply in each face's own left-to-right coordinates, and marks stay attached to the face struck.
+
+Enable **Turn between sides during session**, select 90–180 degrees, and set hold time and turn duration. A 180-degree turn presents the opposite image; a 90-degree turn exposes/hides a face edge-on (use Target rotation to choose the starting orientation). Turns alternate with smooth starts/stops, continue during camera holds, and restart from the initial angle. Historical shot scoring uses the face presented at the captured frame's time. The overhead editor shows the initial orientation.

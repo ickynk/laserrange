@@ -5,6 +5,7 @@ import { cameraPose } from "./core/camera-path.js";
 import * as THREE from "/vendor/three/build/three.module.js";
 import {
   targetPosition,
+  targetRotation,
   pathPosition,
   targetActive,
   zoneScore,
@@ -197,7 +198,7 @@ export class RangeScene {
         if (isReactive(t)) syncReactive(m, this.physics);
         else {
           m.position.set(p.x, t.height / 2, p.z);
-          m.rotation.y = ((t.rotation || 0) * Math.PI) / 180;
+          m.rotation.y = targetRotation(t, this.editor ? t.start : physicsTime);
         }
         m.visible =
           this.editor || targetActive(t, isReactive(t) ? physicsTime : time);
@@ -274,18 +275,24 @@ export class RangeScene {
       this.physics?.parts.find(
         (p) => p.key === hit.object.userData.reactivePart,
       );
-    const reactiveScorable = reactive &&
-      !hit.object.userData.reactiveSupport && this.physics.canScore(reactive);
-    if (
-      root?.userData.type === "target" &&
-      (!reactive || reactiveScorable)
-    ) {
+    const reactiveScorable =
+      reactive &&
+      !hit.object.userData.reactiveSupport &&
+      this.physics.canScore(reactive);
+    if (root?.userData.type === "target" && (!reactive || reactiveScorable)) {
       const u = root.userData;
       const local = reactive
         ? root.getObjectByName(reactive.name).worldToLocal(hit.point.clone())
         : root.worldToLocal(hit.point.clone());
+      const side = hit.object.userData.targetSide || "front";
+      const kind =
+        side === "back" && u.target.backRole && u.target.backRole !== "same"
+          ? u.target.backRole
+          : u.kind;
+      if (side === "back") local.x *= -1;
       result = {
-        result: u.kind === "shoot" ? "hit" : "no-shoot",
+        result: kind === "shoot" ? "hit" : "no-shoot",
+        side,
         target: u.id,
         local: {
           x: local.x / (reactive?.size[0] || u.target.width) + 0.5,
@@ -294,7 +301,7 @@ export class RangeScene {
       };
       const zone = zoneScore(u.target, result.local);
       Object.assign(result, zone, {
-        points: u.kind === "shoot" ? zone.points : 0,
+        points: kind === "shoot" ? zone.points : 0,
       });
     } else if (hit) result.target = root?.userData.id || "barrier";
     if (hit) {

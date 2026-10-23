@@ -1,4 +1,5 @@
 import * as THREE from "/vendor/three/build/three.module.js";
+import { dodecaFaces, dodecaVertices } from "./dodecahedron.js";
 export function reactiveModel(t, physics, kind = "shoot") {
   const root = new THREE.Group();
   const colors = {
@@ -36,14 +37,14 @@ export function reactiveModel(t, physics, kind = "shoot") {
         mesh.rotation.x = 0;
       }
       const ring = add(
-        new THREE.TorusGeometry(w * 0.37, 0.006, 6, 32),
+        new THREE.TorusGeometry(w * 0.37, Math.min(0.006, w * 0.02), 6, 32),
         new THREE.MeshStandardMaterial({ color: 0x586b75, roughness: 0.7 }),
       );
       ring.position.z = 0.025;
       if (t.asset === "dueling-tree") {
         const arm = t.width * 0.34;
         const rod = add(
-          new THREE.BoxGeometry(arm, 0.035, 0.035),
+          new THREE.BoxGeometry(arm, Math.min(0.035, h * 0.12), 0.035),
           new THREE.MeshStandardMaterial({ color: colors.frame }),
         );
         rod.position.x = -arm / 2;
@@ -87,28 +88,20 @@ export function reactiveModel(t, physics, kind = "shoot") {
         new THREE.MeshStandardMaterial({ color: 0xbac5c2, roughness: 1 }),
       );
       label.position.y = -h * 0.06;
-    } else if (p.shape === "hex") {
-      const shape = new THREE.Shape();
-      for (let i = 0; i < 6; i++) {
-        const a = (i * Math.PI) / 3;
-        i
-          ? shape.lineTo((Math.cos(a) * w) / 2, (Math.sin(a) * w) / 2)
-          : shape.moveTo(w / 2, 0);
-      }
-      shape.closePath();
-      const hole = new THREE.Path();
-      hole.absarc(0, 0, w * 0.2, 0, Math.PI * 2, true);
-      shape.holes.push(hole);
-      const geo = new THREE.ExtrudeGeometry(shape, {
-        depth: h,
-        bevelEnabled: true,
-        bevelSize: 0.01,
-        bevelThickness: 0.01,
-        bevelSegments: 2,
-        steps: 1,
-      });
-      geo.translate(0, 0, -h / 2);
-      geo.rotateX(Math.PI / 2);
+    } else if (p.shape === "dodeca") {
+      const vertices = dodecaVertices(p.size),
+        positions = [];
+      for (const face of dodecaFaces)
+        for (let i = 1; i < face.length - 1; i++)
+          for (const index of [face[0], face[i], face[i + 1]])
+            positions.push(...vertices[index]);
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute(
+        "position",
+        new THREE.Float32BufferAttribute(positions, 3),
+      );
+      geo.computeVertexNormals();
+      material.flatShading = true;
       add(geo);
     } else if (p.shape === "shard") {
       const geo = new THREE.TetrahedronGeometry(1);

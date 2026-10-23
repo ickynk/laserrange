@@ -118,17 +118,38 @@ export function validateScenario(s) {
   for (const t of s.targets) {
     if (!finite(t.rotation ?? 0, -180, 180))
       throw Error("Invalid target rotation.");
-    if (t.image !== undefined) {
+    if (
+      !["blank", "repeat", "separate"].includes(
+        t.backImageMode ?? (t.image ? "blank" : "repeat"),
+      ) ||
+      !["same", "shoot", "no-shoot"].includes(t.backRole ?? "same")
+    )
+      throw Error("Invalid cardboard back image or role.");
+    if (t.turn !== undefined) {
+      const turn = t.turn;
       if (
-        typeof t.image !== "string" ||
-        !/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(
-          t.image,
-        ) ||
-        t.image.length > 400000
+        !turn ||
+        typeof turn !== "object" ||
+        Array.isArray(turn) ||
+        typeof (turn.enabled ?? false) !== "boolean" ||
+        !finite(turn.angle ?? 180, 90, 180) ||
+        !finite(turn.hold ?? 2, 0.1, 60) ||
+        !finite(turn.duration ?? 0.5, 0.1, 10)
       )
-        throw Error("Invalid target image (maximum 400 KB).");
-      imageBytes += t.image.length;
+        throw Error("Invalid target turning settings.");
     }
+    for (const image of [t.image, t.backImage])
+      if (image !== undefined) {
+        if (
+          typeof image !== "string" ||
+          !/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(
+            image,
+          ) ||
+          image.length > 400000
+        )
+          throw Error("Invalid target image (maximum 400 KB).");
+        imageBytes += image.length;
+      }
   }
   if (imageBytes > 8000000) throw Error("Target images exceed 8 MB per range.");
   const ids = new Set();
@@ -161,10 +182,16 @@ export function validateScenario(s) {
       !finite(t.elevation ?? 0, 0, 5) ||
       !finite(t.impactStrength ?? 1, 0.2, 3) ||
       !Number.isInteger(t.stackRows ?? 3) ||
-      !finite(t.stackRows ?? 3, 1, 5)
+      !finite(t.stackRows ?? 3, 1, 5) ||
+      !Number.isInteger(t.hitsToFall ?? 1) ||
+      !finite(t.hitsToFall ?? 1, 1, 20)
     )
       throw Error(
-        "Invalid reactive elevation, impact strength, or stack rows.",
+        "Invalid reactive elevation, impact strength, stack rows, or hits required.",
+      );
+    if (t.asset === "slide-plate" && t.height < t.width + 0.1)
+      throw Error(
+        "Sliding post height must exceed plate diameter by at least 0.1 m.",
       );
     if (t.path.length)
       throw Error(
@@ -179,7 +206,9 @@ export function validateScenario(s) {
             ? 8
             : t.asset === "texas-star"
               ? 8
-              : 2;
+              : t.asset === "slide-plate"
+                ? 3
+                : 2;
   }
   if (reactiveBudget > 160)
     throw Error(
@@ -400,4 +429,23 @@ export function compareSessions(sessions) {
       bestPoints: Math.max(...g.summaries.map((s) => s.points)),
     };
   });
+}
+
+// Alternating held faces with smooth quarter/half turns. Pure time-based pose
+// allows delayed scoring to reconstruct exactly which face was presented.
+export function targetRotation(t, time) {
+  const base = ((t.rotation ?? 0) * Math.PI) / 180;
+  if (t.asset !== "cardboard" || !t.turn?.enabled) return base;
+  const hold = t.turn.hold ?? 2,
+    duration = t.turn.duration ?? 0.5;
+  const leg = hold + duration,
+    elapsed = Math.max(0, time - t.start);
+  const phase = elapsed % (2 * leg);
+  const returning = phase >= leg;
+  const progress = Math.max(0, Math.min(1, ((phase % leg) - hold) / duration));
+  const eased = progress * progress * (3 - 2 * progress);
+  return (
+    base +
+    (((t.turn.angle ?? 180) * Math.PI) / 180) * (returning ? 1 - eased : eased)
+  );
 }
