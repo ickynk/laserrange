@@ -1,3 +1,5 @@
+import { installCameraControls } from "./core/camera-controls.js";
+import { cameraAdvisory, sanitizeCameraHealth } from "./core/camera-health.js";
 import { VoiceControl } from "./core/voice-control.js";
 import { VideoPulseFilter } from "./core/video-filter.js";
 import {
@@ -61,6 +63,8 @@ let channel,
   autoRequested = false,
   patternTimer;
 let alignmentQuality = null;
+let lastCameraFrame = 0,
+  cameraStalled = false;
 let voiceRunId = null,
   pendingVoice = null,
   voiceReplyTimer;
@@ -212,6 +216,11 @@ $("connect").onclick = () => {
       $("applyZero").disabled = !m.canApply;
       $("cancelZero").disabled = !m.active;
     })
+    .on("camera-control", (m) => {
+      if (Math.abs((channel?.now() ?? Date.now()) - m.time) > 3000) return;
+      const result = cameraAction(m.action);
+      channel.send({ type: "camera-control-result", id: m.id, ...result });
+    })
     .on("reference", receiveReference)
     .on("mode", (m) => {
       if (mode !== m.mode) {
@@ -273,6 +282,8 @@ async function receiveReference(m) {
   }
 }
 async function startCamera() {
+  if (cameraControls.busy)
+    return notify("Wait for the camera setting change to finish.");
   if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia)
     return notify(
       "Phone cameras require trusted HTTPS. Use docs/SETUP.md to configure the host certificate or HTTPS tunnel.",
@@ -280,6 +291,9 @@ async function startCamera() {
   invalidate();
   stream?.getTracks().forEach((t) => t.stop());
   loopGeneration++;
+  lastVideoTime = -1;
+  lastCameraFrame = performance.now();
+  cameraStalled = false;
   try {
     const deviceId = $("cameraSelect").value;
     stream = await navigator.mediaDevices.getUserMedia({
@@ -307,6 +321,7 @@ async function startCamera() {
     $("cameraSelect").value = selected;
     stream.getVideoTracks()[0].onended = () =>
       invalidate("Camera stopped. Enable it and recalibrate.");
+    cameraControls.refresh();
     try {
       wakeLock = await navigator.wakeLock?.request("screen");
     } catch {}
@@ -330,6 +345,95 @@ async function startCamera() {
 }
 $("startCamera").onclick = startCamera;
 $("cameraSelect").onchange = startCamera;
+const cameraControls = installCameraControls({
+  root: $("cameraHardwareControls"),
+  track: () => stream?.getVideoTracks()[0],
+  blocked: () =>
+    voiceRunId !== null ||
+    !!(
+      patternActive ||
+      testing ||
+      baselineUntil ||
+      autoUntil ||
+      adaptingUntil
+    ) ||
+    document.hidden,
+  before: () => pauseDetection("Applying camera settings — hold fire."),
+  after: (success) => {
+    if (success) refreshSensitivity();
+    else {
+      resumeDetection = false;
+      ready(false);
+    }
+  },
+});
+function cameraAction(action) {
+  const fail = (message) => ({ accepted: false, message });
+  if (!["pause", "resume", "refresh"].includes(action))
+    return fail("Unknown camera action.");
+  if (
+    voiceRunId !== null ||
+    patternActive ||
+    testing ||
+    baselineUntil ||
+    autoUntil ||
+    cameraControls.busy ||
+    adaptingUntil
+  )
+    return fail(
+      "End the session and wait for calibration/settings to finish first.",
+    );
+  if (action === "pause") {
+    resumeDetection = false;
+    ready(false);
+    videoFilter.reset();
+    return { accepted: true, message: "Detection paused. Alignment retained." };
+  }
+  if (
+    !connected ||
+    document.hidden ||
+    stream?.getVideoTracks()[0]?.readyState !== "live" ||
+    stream.getVideoTracks()[0].muted ||
+    performance.now() - lastCameraFrame > 2500
+  )
+    return fail(
+      "Bring the connected phone camera to the foreground and resume its preview first.",
+    );
+  if (!mapping || !baselineDone || testCount < 3)
+    return fail(
+      "Complete alignment, baseline and three test pulses on the phone first.",
+    );
+  if (action === "resume") {
+    resumeDetection = true;
+    ready(false);
+  } else pauseDetection("Refreshing sensitivity — hold fire.");
+  refreshSensitivity();
+  return {
+    accepted: true,
+    message:
+      "Sensitivity refresh started. Corners and pulse check retained; hold fire until ready.",
+  };
+}
+for (const [id, action] of [
+  ["refreshCameraSensitivity", "refresh"],
+  ["resumeCameraDetection", "resume"],
+  ["pauseCameraDetection", "pause"],
+])
+  $(id).onclick = () => notify(cameraAction(action).message);
+$("resumeCameraPreview").onclick = async () => {
+  try {
+    if (voiceRunId !== null || cameraControls.busy)
+      return notify("End the session before recovering the preview.");
+    if (stream?.getVideoTracks()[0]?.readyState !== "live")
+      return notify("Camera stopped. Enable it and recheck alignment.");
+    await $("camera").play();
+    notify(
+      "Preview resume requested. Wait for fresh frames before resuming detection.",
+    );
+  } catch (e) {
+    notify(`Preview could not resume: ${e.message}`);
+  }
+};
 function drawCorners() {
   const c = $("cornerOverlay"),
     x = c.getContext("2d");
@@ -568,6 +672,11 @@ function processFrame() {
   )
     return;
   lastVideoTime = video.currentTime;
+  lastCameraFrame = performance.now();
+  if (cameraStalled && !stream?.getVideoTracks()[0]?.muted) {
+    cameraStalled = false;
+    if (resumeDetection) restoreConnection();
+  }
   if (
     capture.width !== video.videoWidth ||
     capture.height !== video.videoHeight
@@ -768,3 +877,72 @@ document.addEventListener("visibilitychange", () => {
 window.addEventListener("orientationchange", () =>
   invalidate("Orientation changed. Recheck the screen corners."),
 );
+
+// A separate heartbeat reports a frozen capture loop instead of silently losing telemetry.
+function publishCameraHealth() {
+  const track = stream?.getVideoTracks()[0];
+  let settings = {};
+  try {
+    settings = track?.getSettings?.() || {};
+  } catch {}
+  const report = sanitizeCameraHealth({
+    trackState: track?.readyState || "none",
+    muted: track?.muted,
+    visible: !document.hidden,
+    awake: !!wakeLock && !wakeLock.released,
+    frameAgeMs: lastCameraFrame
+      ? Math.min(60000, performance.now() - lastCameraFrame)
+      : null,
+    sourceFPS: settings.frameRate,
+    settings,
+  });
+  if (
+    track?.readyState === "live" &&
+    !document.hidden &&
+    (track.muted || report.frameAgeMs === null || report.frameAgeMs > 2500) &&
+    !cameraStalled
+  ) {
+    cameraStalled = true;
+    pauseDetection(
+      "Camera frames stalled. Alignment retained; resume the preview.",
+    );
+  }
+  $("phoneHealthStatus").textContent =
+    cameraAdvisory(report) ||
+    (adaptingUntil
+      ? "Sensitivity settling — hold fire."
+      : armed
+        ? "Fresh camera frames · detection armed."
+        : "Fresh camera frames · detection paused.");
+  $("phoneHealthMetrics").textContent =
+    `Last frame ${report.frameAgeMs === null ? "—" : Math.round(report.frameAgeMs) + " ms"} · camera ${report.sourceFPS ?? "—"} fps · screen wake lock ${report.awake ? "held" : "not held"}`;
+  cameraControls.tick();
+  const busy =
+    voiceRunId !== null ||
+    !!(
+      patternActive ||
+      testing ||
+      baselineUntil ||
+      autoUntil ||
+      adaptingUntil
+    ) ||
+    cameraControls.busy;
+  for (const id of [
+    "refreshCameraSensitivity",
+    "pauseCameraDetection",
+    "resumeCameraDetection",
+  ])
+    $(id).disabled = busy;
+  $("resumeCameraPreview").disabled =
+    voiceRunId !== null || cameraControls.busy;
+  channel?.send({ type: "camera-health", ...report });
+}
+let cameraHealthTimer = setInterval(publishCameraHealth, 1000);
+window.addEventListener("pagehide", () => {
+  clearInterval(cameraHealthTimer);
+  cameraHealthTimer = null;
+});
+window.addEventListener("pageshow", () => {
+  if (!cameraHealthTimer)
+    cameraHealthTimer = setInterval(publishCameraHealth, 1000);
+});

@@ -146,3 +146,17 @@ Report observed extra/missing events, incorrect part hits, objects passing throu
 Set each steel type to three hits and verify the first two strikes leave the plate active, with the third releasing it (or swinging a tree paddle). Check independent Texas-star/tree plate counts, no additional scoring after steel falls, and a fresh count on restart. Shoot a dodecahedron at different points and compare tumble direction. Swing neighboring tree paddles to the same side and confirm clearance. Sliding steel should descend along its post to the base.
 
 Upload visibly distinct front/back images, set different face roles, and run a 180° turn with a generous hold. Verify image orientation, face-specific hit/no-shoot results, and marks remaining on the struck face. Try a 90° turn from an edge-on starting angle, then repeat with a held camera segment and in the separate projector. Report any placement errors specifically during turns alongside the configured turn duration; display/camera latency still limits optical accuracy for moving faces.
+
+
+## Camera Health controls: physical acceptance
+
+End the course and any hardware test before using recovery controls. On the operator, open Camera → Range Health; on the phone use Camera Health.
+
+1. While calibrated, Refresh sensitivity; confirm the phone acknowledges it, detection returns after settling, and corners, three-pulse check, manual threshold and screen zero remain intact. Verify shot placement afterward.
+2. Pause detection, then refresh: it must remain paused. Resume detection and confirm shots register again.
+3. Background and restore the phone. Check heartbeat/capture warnings and retained alignment. A live course interrupted by unready detection ends; restart it explicitly after recovery.
+4. If a live preview freezes, try Resume camera preview. If the camera is stopped, enable it again and realign. Do not move the mount during recovery.
+5. Expand phone Camera settings. Record phone/browser version and which controls appear. Unsupported browsers should show a clear fallback message. Try one small supported setting change, confirm the displayed value, sharpness and placement, then repeat the pulse/no-fire tests. A rejected/unconfirmed setting must leave detection paused with an explanation.
+6. Confirm controls are disabled during a live course and return afterward. Test a brief Wi-Fi interruption and record recovery time and any lost calibration or unacknowledged command.
+
+Camera-reported FPS is distinct from measured processing FPS. A wake-lock indicator reports the browser's current lock, not a guarantee against OS suspension. Hardware focus changes can alter apparent geometry: inspect alignment and realign if necessary. Desktop mocked settings and synthetic camera tests do not establish iPhone/Android control availability or optical performance.

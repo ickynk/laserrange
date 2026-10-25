@@ -110,6 +110,8 @@ const now = () => channel?.now() ?? Date.now();
 const health = installHealthPanel({
   root: $("rangeHealth"),
   clock: now,
+  cameraControl: (action, id) =>
+    channel?.send({ type: "camera-control", action, id, time: now() }),
   state: () => ({
     connected: phoneConnected,
     ready: phoneReady,
@@ -1585,6 +1587,8 @@ async function connectHost(explicitToken) {
         if (!m.ready && running && !runDemo) stopRun();
         sendControlState();
       })
+      .on("camera-health", (m) => health.camera(m))
+      .on("camera-control-result", (m) => health.cameraResult(m))
       .on("voice-command", handleVoice)
       .on("alignment-changed", () => {
         health.interrupt("Screen alignment changed during test.");

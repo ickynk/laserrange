@@ -1,8 +1,21 @@
+import { cameraAdvisory } from "./camera-health.js";
 import { HardwareTest, healthStatus, voiceSequence } from "./range-health.js";
-export function installHealthPanel({ root, state, placement, zero, clock }) {
+export function installHealthPanel({
+  root,
+  state,
+  placement,
+  zero,
+  clock,
+  cameraControl,
+}) {
   root.innerHTML = `<details id="healthPanel" open><summary>Range Health &amp; hardware tests</summary>
  <p id="healthStatus" role="status">No telemetry yet.</p><dl id="healthMetrics"></dl>
- <p class="hint">Alignment fit is from the last calibration, not live camera-movement tracking. Brightness depends on projected content. This panel never changes calibration or sensitivity.</p>
+ <p class="hint">Alignment fit is from the last calibration, not live camera-movement tracking. Brightness depends on projected content.</p>
+ <details id="cameraRecovery" open><summary>Camera recovery controls</summary>
+ <div class="row"><button id="healthRefresh">Refresh sensitivity</button><button id="healthPause">Pause detection</button><button id="healthResume">Resume detection</button></div>
+ <p id="cameraControlResult" role="status">Connect a phone with live health updates to use these controls.</p>
+ <p class="hint">End the session/test before adjusting. Refresh keeps corners, screen zero and the pulse check. Exposure/focus controls and preview recovery are on the phone. Changing camera or moving the mount still needs alignment.</p>
+ </details>
  <details id="hardwareTests"><summary>Guided hardware tests</summary>
  <label>Test setup / phone / laser / lighting<input id="testSetup" maxlength="160" placeholder="iPhone · red TitanX · dim room" /></label>
  <label>Test<select id="testKind"><option value="placement">1 · Screen placement (9 points)</option><option value="pulses">2 · Pulse count</option><option value="idle">3 · No-fire false events</option><option value="voice">4 · Voice commands</option></select></label>
@@ -21,6 +34,37 @@ export function installHealthPanel({ root, state, placement, zero, clock }) {
     receivedAt = 0,
     test = null,
     records = [];
+  let camera = null,
+    cameraReceivedAt = 0,
+    pendingControl = null,
+    lastControlAt = -Infinity;
+  const controlButtons = [
+    ["healthRefresh", "refresh"],
+    ["healthPause", "pause"],
+    ["healthResume", "resume"],
+  ];
+  const controlsBlocked = () =>
+    clock() - lastControlAt < 600 ||
+    !cameraControl ||
+    !state().connected ||
+    state().running ||
+    state().adjusting ||
+    state().calibrating ||
+    test?.active ||
+    pendingControl ||
+    !camera ||
+    clock() - cameraReceivedAt > 4000;
+  for (const [id, action] of controlButtons)
+    $(id).onclick = () => {
+      if (controlsBlocked()) return;
+      const id = crypto.randomUUID();
+      lastControlAt = clock();
+      pendingControl = { id, time: lastControlAt };
+      $("cameraControlResult").textContent =
+        "Waiting for phone acknowledgment…";
+      cameraControl(action, id);
+      tick();
+    };
   try {
     const saved = JSON.parse(
       localStorage.getItem("laser-range.hardware.v1") || "[]",
@@ -147,6 +191,11 @@ export function installHealthPanel({ root, state, placement, zero, clock }) {
     $("unheardVoice").hidden = !active || test.kind !== "voice";
   }
   $("beginHardwareTest").onclick = () => {
+    if (pendingControl) {
+      $("testProgress").textContent =
+        "Wait for the camera action acknowledgment before testing.";
+      return;
+    }
     const s = state(),
       kind = $("testKind").value;
     if (
@@ -221,7 +270,18 @@ export function installHealthPanel({ root, state, placement, zero, clock }) {
   function tick() {
     const s = state(),
       now = clock();
-    $("healthStatus").textContent = healthStatus(latest, receivedAt, now, s);
+    if (pendingControl && (now - pendingControl.time > 5000 || !s.connected)) {
+      pendingControl = null;
+      $("cameraControlResult").textContent =
+        "Phone did not confirm the action. Check its current state before repeating.";
+    }
+    for (const [id] of controlButtons) $(id).disabled = !!controlsBlocked();
+    const cameraIssue =
+      s.connected && camera && now - cameraReceivedAt <= 4000
+        ? cameraAdvisory(camera)
+        : null;
+    $("healthStatus").textContent =
+      cameraIssue || healthStatus(latest, receivedAt, now, s);
     const rows = latest
       ? [
           ["Telemetry age", `${fmt((now - receivedAt) / 1000)} sec`],
@@ -268,6 +328,29 @@ export function installHealthPanel({ root, state, placement, zero, clock }) {
           ],
         ]
       : [];
+    if (camera)
+      rows.push(
+        ["Camera heartbeat age", `${fmt((now - cameraReceivedAt) / 1000)} sec`],
+        [
+          "Capture / last frame",
+          `${camera.trackState}${camera.muted ? " · interrupted" : ""} / ${fmt(camera.frameAgeMs)} ms`,
+        ],
+        ["Camera-reported frame rate", `${fmt(camera.sourceFPS)} fps`],
+        [
+          "Phone foreground / screen awake",
+          `${camera.visible ? "Yes" : "No"} / ${camera.awake ? "wake lock held" : "not held"}`,
+        ],
+        [
+          "Focus / exposure / white balance",
+          [
+            camera.settings?.focusMode,
+            camera.settings?.exposureMode,
+            camera.settings?.whiteBalanceMode,
+          ]
+            .map((v) => v || "Not exposed")
+            .join(" / "),
+        ],
+      );
     $("healthMetrics").replaceChildren();
     for (const [label, value] of rows) {
       const dt = document.createElement("dt"),
@@ -325,6 +408,18 @@ export function installHealthPanel({ root, state, placement, zero, clock }) {
   results();
   tick();
   return {
+    camera(m) {
+      camera = m;
+      cameraReceivedAt = clock();
+      tick();
+    },
+    cameraResult(m) {
+      if (m.id !== pendingControl?.id) return;
+      pendingControl = null;
+      $("cameraControlResult").textContent =
+        (m.accepted ? "Phone confirmed: " : "Phone declined: ") + m.message;
+      tick();
+    },
     telemetry(m) {
       latest = m;
       receivedAt = clock();

@@ -56,6 +56,25 @@
           <option value="">Default rear camera</option>
         </select></label
       >
+      <section id="phoneHealth">
+        <h2>Camera health</h2>
+        <p id="phoneHealthStatus" role="status">
+          Enable the camera to check its feed.
+        </p>
+        <p id="phoneHealthMetrics" class="hint"></p>
+        <div class="row">
+          <button id="refreshCameraSensitivity">Refresh sensitivity</button
+          ><button id="resumeCameraDetection">Resume detection</button
+          ><button id="pauseCameraDetection">Pause detection</button>
+        </div>
+        <button id="resumeCameraPreview">Resume camera preview</button>
+        <p class="hint">
+          Recovery keeps screen corners and the existing pulse check. End the
+          session before adjusting. A stopped or changed camera still needs
+          alignment; keep this page foreground.
+        </p>
+        <div id="cameraHardwareControls"></div>
+      </section>
       <div class="row">
         <button id="showPattern">Show calibration &amp; auto-align</button>
         <button id="hidePattern">Return projector to range</button>

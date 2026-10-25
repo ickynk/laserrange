@@ -89,3 +89,11 @@ Completed in editor/pairing/audio revision:
 - Newest-frame tie-breaking for equally good source references.
 - Optional faster preliminary voice recognition; final-only remains default.
 - User baseline and targeted retest recorded in HARDWARE-VALIDATION.md. Stationary/moving overcount, video recall/false events and residual placement bias remain open until retested. Extended-session calibration retention and functional voice commands are user-reported successes for this setup.
+
+
+### Camera Health controls — implemented, physical acceptance pending
+
+- Independent capture heartbeat and stalled/background/stopped warnings.
+- Acknowledged operator and phone pause/resume/sensitivity refresh, preserving existing alignment and qualification.
+- Capability-detected phone focus/exposure/white-balance controls with verified settings and failure-to-paused behavior.
+- Remaining: real-device support matrix, physical recovery/placement checks, and photometric/calibration-quality improvements listed above.

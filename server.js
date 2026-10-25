@@ -1,3 +1,4 @@
+import { sanitizeCameraHealth } from "./public/core/camera-health.js";
 import { sanitizeHealth } from "./public/core/health-telemetry.js";
 import { libraryRequest } from "./server/library.js";
 import http from "node:http";
@@ -172,7 +173,8 @@ export function createRangeServer({
       role,
       tokens = 200,
       windowStart = Date.now(),
-      lastVoice = 0;
+      lastVoice = 0,
+      lastCameraControl = 0;
     const deadline = setTimeout(() => {
       if (!session) ws.close(1008, "Pairing timeout");
     }, 10000);
@@ -255,6 +257,33 @@ export function createRangeServer({
           serverTime: Date.now(),
         });
       if (role === "host") {
+        if (m.type === "camera-control") {
+          if (
+            !["pause", "resume", "refresh"].includes(m.action) ||
+            typeof m.id !== "string" ||
+            m.id.length > 80 ||
+            !Number.isFinite(m.time) ||
+            Math.abs(Date.now() - m.time) > 3000
+          )
+            return;
+          if (Date.now() - lastCameraControl < 500) {
+            send(ws, {
+              type: "camera-control-result",
+              id: m.id,
+              accepted: false,
+              message: "Wait briefly before another camera action.",
+            });
+            return;
+          }
+          lastCameraControl = Date.now();
+          send(session.phone, {
+            type: "camera-control",
+            id: m.id,
+            action: m.action,
+            time: m.time,
+          });
+          return;
+        }
         if (
           [
             "reference",
@@ -277,6 +306,23 @@ export function createRangeServer({
           send(session.phone, m);
         }
       } else {
+        if (m.type === "camera-health")
+          send(session.host, {
+            type: "camera-health",
+            ...sanitizeCameraHealth(m),
+          });
+        if (
+          m.type === "camera-control-result" &&
+          typeof m.id === "string" &&
+          m.id.length <= 80 &&
+          typeof m.message === "string"
+        )
+          send(session.host, {
+            type: "camera-control-result",
+            id: m.id,
+            accepted: m.accepted === true,
+            message: m.message.slice(0, 240),
+          });
         if (m.type === "voice-command") {
           if (
             !["moving", "cover", "retrograde"].includes(m.command) ||

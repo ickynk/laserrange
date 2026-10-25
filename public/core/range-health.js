@@ -14,9 +14,9 @@ export function healthStatus(sample, receivedAt, now, state) {
   if (!state.connected) return "Phone disconnected — pair or reconnect.";
   if (!sample || now - receivedAt > 4000)
     return "Telemetry stale — keep the phone foreground and check the connection.";
-  if (!state.ready)
-    return "Detection not armed — complete calibration and the pulse check.";
   if (state.adjusting) return "Sensitivity settling — hold fire.";
+  if (!state.ready)
+    return "Detection paused or unqualified — resume on the phone, or complete calibration and the pulse check.";
   if (sample.fps < 15)
     return "Low processing FPS — short pulses may be missed.";
   if (state.mode !== "youtube" && sample.referenceAge > 400)
