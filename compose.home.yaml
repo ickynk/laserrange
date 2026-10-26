@@ -1,0 +1,31 @@
+# Public domain with Caddy HTTPS. Only the HTTPS gateway is exposed.
+services:
+  range:
+    build: .
+    restart: unless-stopped
+    environment:
+      PUBLIC_ORIGIN: https://${RANGE_DOMAIN:?Set RANGE_DOMAIN to your public DNS name}
+      REQUIRE_PHONE_TOKEN: "true"
+    volumes:
+      - range-data:/app/data
+    security_opt:
+      - no-new-privileges:true
+  gateway:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      RANGE_DOMAIN: ${RANGE_DOMAIN:?Set RANGE_DOMAIN to your public DNS name}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      range:
+        condition: service_healthy
+volumes:
+  range-data:
+  caddy-data:
+  caddy-config:

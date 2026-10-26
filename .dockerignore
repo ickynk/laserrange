@@ -1,0 +1,10 @@
+**
+!package.json
+!package-lock.json
+!server.js
+!server/
+!server/**
+!public/
+!public/**
+!scripts/
+!scripts/host-link.js

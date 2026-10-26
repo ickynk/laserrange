@@ -1,0 +1,16 @@
+# Existing HTTPS proxy/tunnel on this host. The backend is loopback-only.
+services:
+  range:
+    build: .
+    restart: unless-stopped
+    environment:
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:?Set PUBLIC_ORIGIN to the external HTTPS origin}
+      REQUIRE_PHONE_TOKEN: "true"
+    ports:
+      - "127.0.0.1:8443:8443"
+    volumes:
+      - range-data:/app/data
+    security_opt:
+      - no-new-privileges:true
+volumes:
+  range-data:

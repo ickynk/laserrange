@@ -154,3 +154,11 @@ A one-second phone heartbeat runs independently of the frame-processing loop. Bo
 Operator pause/resume/refresh commands have IDs, freshness checks, rate limiting, phone acknowledgments and UI timeouts. Commands are blocked during a course, calibration, hardware test or adaptation. Refresh preserves corners, pulse qualification, manual threshold and shooter zero; explicitly paused detection stays paused until Resume.
 
 Phone hardware controls use getCapabilities/getSettings/applyConstraints. Only supported focus, exposure and white-balance fields are offered, with numeric capability bounds and manual-mode gating. Applying changes pauses detection, verifies reported settings and refreshes sensitivity. Rejected or unconfirmed changes leave detection paused. Hardware settings are device-local and not saved as portable scenario configuration. Preview recovery only calls play on the existing live stream; stopped/replaced cameras use normal camera setup and alignment.
+
+### Deployment and remote pairing
+
+`server/deployment.js` reads saved deployment settings with environment overrides, normalizes the public origin, validates direct-TLS certificate/key/date/hostname consistency and persists the default operator key in the data directory. The server entry point uses these settings; programmatic test servers retain explicit ephemeral credentials. Secrets and machine-specific configuration are Git-ignored and excluded from the Docker build context.
+
+Each session now has a separate 192-bit phone pairing key. QR links include that key in a fragment; the phone removes the fragment after reading it and uses the key for WebSocket joining/reconnect. Configurable key-required mode disables code-only pairing, and home deployment presets enable it. A phone key cannot authenticate session creation or library APIs. `PUBLIC_ORIGIN` determines QR defaults and the existing WebSocket origin check; forwarded headers are not used to infer trust.
+
+Home containers run an HTTP backend as an unprivileged user with persistent data. Either a loopback port serves an existing HTTPS proxy/tunnel, or a bundled Caddy service exposes HTTPS while the backend remains internal. The operator/projector still render at the range location; references and phone events traverse the server, so remote network conditions remain part of hardware acceptance.

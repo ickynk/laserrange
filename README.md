@@ -4,6 +4,10 @@ An experimental browser-based dry-fire range for a computer, projector, and fixe
 
 Repository: [ickynk/laserrange](https://github.com/ickynk/laserrange) (private).
 
+## Portable and home-server deployment
+
+Use **Start-Laser-Range.cmd** (Windows) or **Start-Laser-Range.command** (macOS/Linux) for guided first-time setup and repeat launches. `npm run setup` configures portable LAN HTTPS or an existing home HTTPS proxy. Docker Compose presets provide persistent home hosting with an existing proxy/tunnel or a bundled Caddy gateway. Remote QR links use phone-only pairing keys. See [Deployment guide](docs/DEPLOYMENT.md) for setup, updates and backups.
+
 ## Start on the computer
 
 Install Node.js 22 or newer, then:

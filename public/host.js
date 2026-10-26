@@ -1457,9 +1457,9 @@ async function updatePairLink() {
   try {
     const origin = new URL($("phoneOrigin").value);
     if (!["http:", "https:"].includes(origin.protocol)) throw Error();
-    const link = `${origin.origin}/phone#code=${session.code}`;
+    const link = `${origin.origin}/phone#code=${session.code}&key=${session.phoneToken}`;
     $("phoneLink").href = link;
-    $("phoneLink").textContent = link;
+    $("phoneLink").textContent = "Open paired phone camera";
     $("qr").src = `/api/qr?value=${encodeURIComponent(link)}`;
     $("qr").hidden = false;
   } catch {
@@ -1528,6 +1528,9 @@ async function connectHost(explicitToken) {
     session = data;
     $("pairCode").textContent = data.code;
     $("phoneOrigin").value = data.publicOrigin || location.origin;
+    $("pairingHelp").textContent = data.requirePhoneToken
+      ? "Remote pairing: scan the QR or open the full phone link. The six-digit code alone is disabled. Treat the phone link as private."
+      : "Scan the QR, open the phone link, or enter the six-digit code. Phones need trusted HTTPS. Treat the phone link as private.";
     await updatePairLink();
     channel = new Channel({ role: "host", token: data.token });
     channel

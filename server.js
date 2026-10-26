@@ -1,3 +1,9 @@
+import {
+  loadDeployment,
+  persistentAdminToken,
+  operatorLink,
+  normalizeOrigin,
+} from "./server/deployment.js";
 import { sanitizeCameraHealth } from "./public/core/camera-health.js";
 import { sanitizeHealth } from "./public/core/health-telemetry.js";
 import { libraryRequest } from "./server/library.js";
@@ -40,8 +46,10 @@ export function createRangeServer({
   adminToken = randomBytes(24).toString("hex"),
   tls,
   publicOrigin,
+  requirePhoneToken = false,
   dataDir = resolve(root, "data"),
 } = {}) {
+  publicOrigin = normalizeOrigin(publicOrigin);
   const sessions = new Map();
   const failed = new Map();
   const handler = async (req, res) => {
@@ -82,10 +90,12 @@ export function createRangeServer({
         code = String(randomInt(100000, 1000000));
       } while ([...sessions.values()].some((s) => s.code === code));
       const token = randomBytes(24).toString("hex");
+      const phoneToken = randomBytes(24).toString("hex");
       sessions.set(id, {
         id,
         code,
         token,
+        phoneToken,
         created: Date.now(),
         host: null,
         phone: null,
@@ -96,6 +106,8 @@ export function createRangeServer({
         code,
         token,
         publicOrigin: publicOrigin || null,
+        phoneToken,
+        requirePhoneToken,
       });
     }
     if (url.pathname === "/api/qr") {
@@ -209,14 +221,22 @@ export function createRangeServer({
           failed.set(ip, f);
           session = [...sessions.values()].find(
             (s) =>
-              s.code === m.code &&
+              (typeof m.phoneToken === "string"
+                ? equal(m.phoneToken, s.phoneToken)
+                : !requirePhoneToken && s.code === m.code) &&
               (s.host ||
                 (s.detachedAt && Date.now() - s.detachedAt < 120000)) &&
               Date.now() - s.created < 8 * 3600000,
           );
           if (session) failed.delete(ip);
         }
-        if (!session) return ws.close(1008, "Invalid pairing credentials");
+        if (!session)
+          return ws.close(
+            1008,
+            requirePhoneToken && m.role !== "host"
+              ? "Invalid pairing key; scan the current QR or open the full phone link"
+              : "Invalid pairing credentials",
+          );
         role = m.role === "host" ? "host" : "phone";
         const clientId =
           typeof m.clientId === "string" && m.clientId.length <= 100
@@ -444,26 +464,35 @@ if (
   process.argv[1] &&
   resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 ) {
-  const port = Number(process.env.PORT || 8443);
-  const tls =
-    process.env.TLS_CERT && process.env.TLS_KEY
-      ? {
-          cert: readFileSync(process.env.TLS_CERT),
-          key: readFileSync(process.env.TLS_KEY),
-        }
-      : undefined;
-  const { server, adminToken } = createRangeServer({
-    tls,
-    publicOrigin: process.env.PUBLIC_ORIGIN,
-    dataDir: process.env.RANGE_DATA_DIR || resolve(root, "data"),
-  });
-  server.listen(port, process.env.BIND || "0.0.0.0", () => {
-    console.log(
-      `Laser Range: ${process.env.PUBLIC_ORIGIN || `${tls ? "https" : "http"}://localhost:${port}`}/#host=${adminToken}`,
-    );
-    if (!tls && !process.env.PUBLIC_ORIGIN?.startsWith("https://"))
+  try {
+    const config = loadDeployment(root);
+    const adminToken = persistentAdminToken(config.dataDir, config.adminToken);
+    const { server, wss } = createRangeServer({ ...config, adminToken });
+    server.on("error", (e) => {
+      console.error(`Startup failed: ${e.message}`);
+      process.exitCode = 1;
+    });
+    server.listen(config.port, config.bind, () => {
+      console.log(`Laser Range: ${operatorLink(config, adminToken)}`);
+      console.log(`Saved ranges: ${config.dataDir}`);
       console.log(
-        "Desktop demo works now. Phones require trusted HTTPS: see docs/SETUP.md.",
+        config.requirePhoneToken
+          ? "Phone pairing: QR / full phone link required."
+          : "Phone pairing: QR or six-digit code.",
       );
-  });
+      if (!config.tls && !config.publicOrigin?.startsWith("https://"))
+        console.log(
+          "Desktop demo only. Phones require trusted HTTPS: run npm run setup or see docs/DEPLOYMENT.md.",
+        );
+    });
+    for (const signal of ["SIGINT", "SIGTERM"])
+      process.once(signal, () => {
+        for (const ws of wss.clients) ws.close(1001, "Server stopping");
+        server.close(() => process.exit(0));
+        setTimeout(() => process.exit(0), 2000).unref();
+      });
+  } catch (e) {
+    console.error(`Startup failed: ${e.message}`);
+    process.exitCode = 1;
+  }
 }

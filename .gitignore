@@ -10,3 +10,7 @@ playwright-report/
 data/ranges/*.json
 data/videos/*.json
 data/**/*.tmp
+
+range.config*.json
+data/admin-token
+deploy/*.env

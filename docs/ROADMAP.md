@@ -97,3 +97,10 @@ Completed in editor/pairing/audio revision:
 - Acknowledged operator and phone pause/resume/sensitivity refresh, preserving existing alignment and qualification.
 - Capability-detected phone focus/exposure/white-balance controls with verified settings and failure-to-paused behavior.
 - Remaining: real-device support matrix, physical recovery/placement checks, and photometric/calibration-quality improvements listed above.
+
+### Portable and home deployment — implementation complete, site acceptance pending
+
+- Cross-platform Node launcher, saved setup wizard, LAN certificate generation through installed mkcert and startup validation.
+- Persistent operator key and saved data; separate strong phone QR keys with remote code-only pairing disabled.
+- Docker presets for existing HTTPS proxies/tunnels and a Caddy public-domain gateway; restart/health checks and backup/update guidance.
+- Remaining: real Windows/macOS launcher acceptance, phone certificate trust, home DNS/router/tunnel commissioning and WAN hardware measurements. A standalone executable and bundled offline dependencies are not included.

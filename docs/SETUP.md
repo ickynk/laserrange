@@ -1,5 +1,7 @@
 # Setup: host computer, projector, phone
 
+For the portable launcher or home-hosted remote access, start with [DEPLOYMENT.md](DEPLOYMENT.md). The manual instructions below remain available. Environment variables override saved `range.config.json` settings; clear/update old settings when switching deployment modes.
+
 ## 1. Computer-only smoke test
 
 Install Node.js 22+ from nodejs.org. In the project folder, run `npm ci` and `npm start`. Open the exact URL printed by the process. Keep the terminal open.

@@ -11,7 +11,10 @@
     "start": "node server.js",
     "test": "node --test tests/*.test.js",
     "check": "node scripts/check.js",
-    "vendor:aruco": "node scripts/vendor-aruco.js"
+    "vendor:aruco": "node scripts/vendor-aruco.js",
+    "setup": "node scripts/setup.js",
+    "launch": "node scripts/launch.js",
+    "host:link": "node scripts/host-link.js"
   },
   "dependencies": {
     "cannon-es": "0.20.0",

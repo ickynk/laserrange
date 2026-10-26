@@ -16,3 +16,34 @@ jobs:
       - run: npm test
       - run: npx playwright install --with-deps chromium
       - run: npx playwright test
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and check container persistence
+        run: |
+          docker build -t laserrange:test .
+          docker volume create range-test-data
+          docker run -d --name range-test -p 127.0.0.1:8443:8443 -v range-test-data:/app/data -e PUBLIC_ORIGIN=https://range.example.com -e REQUIRE_PHONE_TOKEN=true laserrange:test
+          for i in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8443/api/health; then break; fi
+            sleep 2
+          done
+          curl --fail http://127.0.0.1:8443/api/health
+          test "$(docker exec range-test id -u)" != 0
+          before=$(docker exec range-test sha256sum /app/data/admin-token)
+          docker restart range-test
+          for i in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8443/api/health; then break; fi
+            sleep 2
+          done
+          curl --fail http://127.0.0.1:8443/api/health
+          after=$(docker exec range-test sha256sum /app/data/admin-token)
+          test "$before" = "$after"
+          docker rm -f range-test
+          docker volume rm range-test-data
+      - name: Validate Compose and Caddy configuration
+        run: |
+          PUBLIC_ORIGIN=https://range.example.com docker compose config --quiet
+          RANGE_DOMAIN=range.example.com docker compose -f compose.home.yaml config --quiet
+          docker run --rm -e RANGE_DOMAIN=range.example.com -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2-alpine caddy adapt --config /etc/caddy/Caddyfile --validate

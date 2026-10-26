@@ -120,7 +120,14 @@ document.addEventListener("visibilitychange", () => {
     );
 });
 window.addEventListener("pagehide", () => voice.stop());
-$("code").value = new URLSearchParams(location.hash.slice(1)).get("code") || "";
+const pairParams = new URLSearchParams(location.hash.slice(1));
+let phonePairKey = pairParams.get("key") || undefined;
+$("code").value = pairParams.get("code") || "";
+$("code").oninput = () => {
+  phonePairKey = undefined;
+};
+if (phonePairKey)
+  notify("Secure phone link loaded. Tap Connect, then enable the camera.");
 history.replaceState(null, "", location.pathname);
 function ready(value) {
   armed = value;
@@ -173,7 +180,11 @@ $("connect").onclick = () => {
   if (channel) channel.close();
   connected = false;
   invalidate();
-  channel = new Channel({ role: "phone", code: $("code").value.trim() });
+  channel = new Channel({
+    role: "phone",
+    code: $("code").value.trim(),
+    phoneToken: phonePairKey,
+  });
   channel
     .on("joined", (m) => {
       connected = m.hostOnline !== false;
@@ -195,7 +206,11 @@ $("connect").onclick = () => {
     })
     .on("host-online", () => {
       connected = true;
-      restoreConnection();
+      if (!mapping || !baselineDone)
+        notify(
+          "Host connection restored. Complete camera setup before arming detection.",
+        );
+      else restoreConnection();
     })
     .on("voice-state", (m) => {
       if (voiceRunId !== m.runId) {

@@ -1,0 +1,3 @@
+{$RANGE_DOMAIN} {
+    reverse_proxy range:8443
+}
