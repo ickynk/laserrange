@@ -1,0 +1,13 @@
+{
+    auto_https disable_redirects
+}
+
+{$RANGE_DOMAIN} {
+    tls {
+        issuer acme {
+            dir https://acme-v02.api.letsencrypt.org/directory
+            disable_http_challenge
+        }
+    }
+    reverse_proxy range:8443
+}

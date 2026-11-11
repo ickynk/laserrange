@@ -47,3 +47,18 @@ jobs:
           PUBLIC_ORIGIN=https://range.example.com docker compose config --quiet
           RANGE_DOMAIN=range.example.com docker compose -f compose.home.yaml config --quiet
           docker run --rm -e RANGE_DOMAIN=range.example.com -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2-alpine caddy adapt --config /etc/caddy/Caddyfile --validate
+      - name: Validate Portainer HTTPS-only gateway
+        run: |
+          docker build -f deploy/Dockerfile.gateway -t laserrange-gateway:test deploy
+          RANGE_DOMAIN=range.example.com docker compose -f compose.portainer.yaml config --quiet
+          docker run --rm -e RANGE_DOMAIN=range.example.com laserrange-gateway:test caddy adapt --config /etc/caddy/Caddyfile --validate > /tmp/range-gateway.json
+          python3 - <<'PYTEST'
+          import json
+          config = json.load(open('/tmp/range-gateway.json'))
+          servers = config['apps']['http']['servers'].values()
+          assert all(server['listen'] == [':443'] and server['automatic_https']['disable_redirects'] for server in servers)
+          issuer = config['apps']['tls']['automation']['policies'][0]['issuers'][0]
+          assert issuer['challenges']['http']['disabled'] is True
+          assert not issuer['challenges'].get('tls-alpn', {}).get('disabled', False)
+          assert issuer['ca'] == 'https://acme-v02.api.letsencrypt.org/directory'
+          PYTEST

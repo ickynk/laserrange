@@ -47,6 +47,10 @@ For a non-Docker installation, run `npm ci`, then `npm run setup`, choose mode 2
 
 For Portainer, deploy the Compose content from this repository with access to the complete build context, or build the image on your Docker host first and use that image in a stack. Pasting the Compose YAML alone into an unrelated stack directory cannot satisfy `build: .` or the Caddyfile mount. No prebuilt public image is published by this revision.
 
+## Portainer when CasaOS already uses port 80
+
+Use the [Portainer + ASUS DDNS guide](PORTAINER.md) and `compose.portainer.yaml`. That variant publishes only TCP 443 and validates/renews its certificate over 443, leaving CasaOS on port 80. Its gateway configuration is built into an image so the Web editor needs no relative bind mount.
+
 ## Home server with bundled automatic HTTPS
 
 Use a DNS name you control, for example `range.example.com`. Point its A record (and AAAA only if correctly routed) at your home connection. Arrange dynamic DNS if your public IP changes. Forward TCP **80 and 443** to the Docker host. Caddy obtains/renews the public certificate and forwards HTTP/WebSocket requests to the internal range service. See [Caddy automatic HTTPS](https://caddyserver.com/docs/automatic-https) and [reverse proxy documentation](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy).

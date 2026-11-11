@@ -1,0 +1,32 @@
+# Docker Standalone / Portainer Web editor. Build both local images first.
+# Only TCP 443 is published; CasaOS can keep host port 80.
+services:
+  range:
+    image: laserrange:local
+    pull_policy: never
+    restart: unless-stopped
+    environment:
+      PUBLIC_ORIGIN: https://${RANGE_DOMAIN:?Set RANGE_DOMAIN in Portainer}
+      REQUIRE_PHONE_TOKEN: "true"
+    volumes:
+      - range-data:/app/data
+    security_opt:
+      - no-new-privileges:true
+  gateway:
+    image: laserrange-gateway:local
+    pull_policy: never
+    restart: unless-stopped
+    environment:
+      RANGE_DOMAIN: ${RANGE_DOMAIN:?Set RANGE_DOMAIN in Portainer}
+    ports:
+      - "443:443/tcp"
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      range:
+        condition: service_healthy
+volumes:
+  range-data:
+  caddy-data:
+  caddy-config:
