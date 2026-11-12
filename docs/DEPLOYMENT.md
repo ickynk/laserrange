@@ -71,7 +71,7 @@ If your ISP uses CGNAT, blocks incoming ports, or your router cannot forward the
 
 ## Operator access, phone pairing and persistence
 
-- On normal startup the server creates `data/admin-token` once with restricted file permissions and reuses it across restarts. The printed operator link unlocks session creation and saved ranges. Keep it private, including in screenshots/logs. Optionally supply a 32–128 character URL-safe `ADMIN_TOKEN` via the environment instead.
+- On normal startup the server creates `data/admin-token` once with restricted file permissions and reuses it across restarts. The printed operator link unlocks session creation and saved ranges. Keep it private, including in screenshots. Normal server/container startup no longer prints this link; retrieve it explicitly with `node scripts/host-link.js`. The interactive portable launcher still displays it for the operator. Optionally supply a 32–128 character URL-safe `ADMIN_TOKEN` via the environment instead.
 - The QR/full phone link contains a random **phone-only session key** in its URL fragment. It does not grant operator/library access. The phone removes the fragment from the address bar after reading it. Do not share the QR publicly.
 - Both home deployment presets require that key; entering only the six-digit code is disabled. Portable LAN mode retains manual code pairing. Scan a fresh QR after a server restart/new operator session, or reopen the full phone link after refreshing the phone. Automatic network reconnect within the page retains its credentials.
 - `REQUIRE_PHONE_TOKEN=true` can also be set for a manual deployment with an HTTPS `PUBLIC_ORIGIN`. A supplied incorrect key cannot fall back to guessing the code.

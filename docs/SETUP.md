@@ -4,7 +4,7 @@ For the portable launcher or home-hosted remote access, start with [DEPLOYMENT.m
 
 ## 1. Computer-only smoke test
 
-Install Node.js 22+ from nodejs.org. In the project folder, run `npm ci` and `npm start`. Open the exact URL printed by the process. Keep the terminal open.
+Install Node.js 22+ from nodejs.org. In the project folder, run `npm ci` and `npm start`. Run `npm run host:link` in a second terminal and open the exact URL it prints. Keep the server terminal open. Normal startup logs omit the operator key.
 
 Leave **Demo · click to shoot** checked. Start a session and click targets. End it to inspect shot frames. This checks graphics/editor/scoring without a laser or phone.
 

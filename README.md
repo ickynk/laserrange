@@ -19,7 +19,7 @@ npm ci
 npm start
 ```
 
-Open the **host URL printed in the terminal**, including its `#host=…` fragment. The default `http://localhost:8443` supports a computer-only demo immediately. Phones require **trusted HTTPS**, not an ordinary LAN HTTP address. Follow [the exact setup guide](docs/SETUP.md) before connecting a phone.
+Run `npm run host:link` in a second terminal and open the **private operator URL it prints**, including its `#host=…` fragment. Normal server/container startup logs omit this credential; the interactive portable launcher displays it explicitly. The default `http://localhost:8443` supports a computer-only demo immediately. Phones require **trusted HTTPS**, not an ordinary LAN HTTP address. Follow [the exact setup guide](docs/SETUP.md) before connecting a phone.
 
 No build step, database, paid service, or native mobile app is needed. Dependencies are served by the host after installation. Local files and 3D scenarios work without an internet connection; YouTube does not.
 

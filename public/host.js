@@ -1452,7 +1452,16 @@ function animate(t) {
 }
 requestAnimationFrame(animate);
 rebuild();
+let pairingImageURL = null,
+  pairingImageVersion = 0;
+function clearPairingImage() {
+  if (pairingImageURL) URL.revokeObjectURL(pairingImageURL);
+  pairingImageURL = null;
+  $("qr").removeAttribute("src");
+  $("qr").hidden = true;
+}
 async function updatePairLink() {
+  const version = ++pairingImageVersion;
   if (!session) return;
   try {
     const origin = new URL($("phoneOrigin").value);
@@ -1460,10 +1469,25 @@ async function updatePairLink() {
     const link = `${origin.origin}/phone#code=${session.code}&key=${session.phoneToken}`;
     $("phoneLink").href = link;
     $("phoneLink").textContent = "Open paired phone camera";
-    $("qr").src = `/api/qr?value=${encodeURIComponent(link)}`;
+    clearPairingImage();
+    const response = await fetch("/api/qr", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session.token}`,
+        "Content-Type": "text/plain",
+      },
+      body: link,
+    });
+    if (!response.ok)
+      throw Error("QR generation failed; use the phone link or try again.");
+    const blob = await response.blob();
+    if (version !== pairingImageVersion) return;
+    pairingImageURL = URL.createObjectURL(blob);
+    $("qr").src = pairingImageURL;
     $("qr").hidden = false;
-  } catch {
-    notice("Enter a full host origin such as https://192.168.1.20:8443");
+  } catch (e) {
+    if (version === pairingImageVersion)
+      notice(e.message || "Check the phone host origin and try again.");
   }
 }
 $("pairLink").onclick = updatePairLink;
@@ -1471,7 +1495,8 @@ const hostKey = "laser-range.host-key";
 function hostAccess(message) {
   $("hostAccess").hidden = false;
   $("hostAccessStatus").textContent = message;
-  $("qr").hidden = true;
+  ++pairingImageVersion;
+  clearPairingImage();
   $("pairCode").textContent = "— — — — — —";
   $("phoneLink").removeAttribute("href");
   notice(message);
@@ -1485,7 +1510,7 @@ $("unlockHost").onclick = () => {
   $("hostCredential").value = "";
   if (!token)
     return hostAccess(
-      "Paste the current host link printed by npm start, including #host=….",
+      "Run node scripts/host-link.js on the server and paste the printed link, including #host=….",
     );
   connectHost(token);
 };
@@ -1504,7 +1529,7 @@ async function connectHost(explicitToken) {
     saved;
   if (!token)
     return hostAccess(
-      "Phone pairing needs the current host link from your server terminal. Paste it in Camera → Host link or access key. HTTPS uses separate browser storage from HTTP.",
+      "Run node scripts/host-link.js in the server/container console. Paste its private link in Camera → Host link or access key. HTTPS uses separate browser storage from HTTP.",
     );
   historyReplace();
   try {

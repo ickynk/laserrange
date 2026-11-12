@@ -119,8 +119,21 @@ test("QR pairing link and rate-limit cooldown recover without refresh or manual 
     );
     await expect(page.locator("#pairCode")).not.toContainText("—");
     const code = await page.locator("#pairCode").textContent();
-    const qr = await page.locator("#qr").getAttribute("src");
-    const url = new URL(qr, page.url()).searchParams.get("value");
+    expect(new URL(page.url()).hash).toBe("");
+    await expect(page.locator("#qr")).toHaveAttribute("src", /^blob:/);
+    const url = await page.locator("#phoneLink").getAttribute("href");
+    const qrRequest = page.waitForRequest(
+      (r) => new URL(r.url()).pathname === "/api/qr",
+    );
+    await page.locator("[data-tab=camera]").click();
+    await page.locator("#pairLink").click();
+    const generated = await qrRequest;
+    expect(generated.method()).toBe("POST");
+    expect(new URL(generated.url()).search).toBe("");
+    expect(generated.postData()).toBe(url);
+    await expect
+      .poll(() => page.locator("#qr").evaluate((img) => img.naturalWidth))
+      .toBeGreaterThan(0);
     await phone.addInitScript(() => {
       const Native = window.WebSocket;
       window.WebSocket = class extends Native {

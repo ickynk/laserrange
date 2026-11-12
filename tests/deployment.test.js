@@ -240,10 +240,21 @@ test("CLI startup and operator-link retrieval reuse the same key and keep privat
       );
       child.stdout.on("data", (chunk) => {
         output += chunk;
-        const match = output.match(/Laser Range: (\S+)/);
+        const match = output.match(/Laser Range listening on port \d+\./);
         if (match) {
           clearTimeout(timer);
-          resolve(match[1]);
+          assert.ok(!output.includes("#host="));
+          assert.ok(
+            !output.includes(
+              readFileSync(join(root, "admin-token"), "utf8").trim(),
+            ),
+          );
+          resolve(
+            execFileSync(process.execPath, ["scripts/host-link.js"], {
+              env,
+              encoding: "utf8",
+            }).trim(),
+          );
         }
       });
       child.once("error", (e) => {

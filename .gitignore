@@ -14,3 +14,8 @@ data/**/*.tmp
 range.config*.json
 data/admin-token
 deploy/*.env
+
+.env.*
+!.env.example
+*.p12
+*.pfx

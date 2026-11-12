@@ -31,4 +31,5 @@ if (!existsSync(resolve(root, "node_modules/ws/package.json"))) {
 }
 if (!existsSync(resolve(root, "range.config.json")))
   run(process.execPath, ["scripts/setup.js"]);
+run(process.execPath, ["scripts/host-link.js"]);
 run(process.execPath, ["server.js"]);

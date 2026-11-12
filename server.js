@@ -1,7 +1,6 @@
 import {
   loadDeployment,
   persistentAdminToken,
-  operatorLink,
   normalizeOrigin,
 } from "./server/deployment.js";
 import { sanitizeCameraHealth } from "./public/core/camera-health.js";
@@ -68,7 +67,7 @@ export function createRangeServer({
       )
         return json(res, 401, {
           error:
-            "Unlock the host with the link printed in the terminal to access saved items.",
+            "Unlock the host with the private link from node scripts/host-link.js to access saved items.",
         });
       return libraryRequest(req, res, url, dataDir, json);
     }
@@ -78,7 +77,8 @@ export function createRangeServer({
         !equal(req.headers.authorization?.replace(/^Bearer /, ""), adminToken)
       )
         return json(res, 401, {
-          error: "Open the host link printed in the server terminal.",
+          error:
+            "Run node scripts/host-link.js in the server console and open its private link.",
         });
       if (sessions.size >= 20)
         return json(res, 429, {
@@ -111,9 +111,43 @@ export function createRangeServer({
       });
     }
     if (url.pathname === "/api/qr") {
-      const value = url.searchParams.get("value") || "";
-      if (value.length > 2048 || !/^https?:\/\//.test(value))
+      if (req.method !== "POST") {
+        res.setHeader("Allow", "POST");
+        return json(res, 405, { error: "Use POST for QR generation." });
+      }
+      const token = req.headers.authorization?.replace(/^Bearer /, "");
+      if (![...sessions.values()].some((s) => equal(token, s.token)))
+        return json(res, 401, { error: "Operator session required." });
+      const body = await new Promise((resolve) => {
+        let size = 0,
+          chunks = [];
+        req.on("data", (chunk) => {
+          size += chunk.length;
+          if (size <= 4096) chunks.push(chunk);
+          else chunks = [];
+        });
+        req.on("end", () =>
+          resolve(size > 4096 ? null : Buffer.concat(chunks).toString("utf8")),
+        );
+        req.on("aborted", () => resolve(null));
+        req.on("error", () => resolve(null));
+      });
+      if (body === null)
+        return json(res, 413, { error: "Pairing URL too large." });
+      let value;
+      try {
+        const target = new URL(body);
+        if (
+          body.length > 2048 ||
+          !["http:", "https:"].includes(target.protocol) ||
+          target.username ||
+          target.password
+        )
+          throw Error();
+        value = target.href;
+      } catch {
         return json(res, 400, { error: "Invalid pairing URL" });
+      }
       res.writeHead(200, { "Content-Type": "image/svg+xml" });
       return res.end(await QRCode.toString(value, { type: "svg" }));
     }
@@ -473,8 +507,10 @@ if (
       process.exitCode = 1;
     });
     server.listen(config.port, config.bind, () => {
-      console.log(`Laser Range: ${operatorLink(config, adminToken)}`);
-      console.log(`Saved ranges: ${config.dataDir}`);
+      console.log(`Laser Range listening on port ${config.port}.`);
+      console.log(
+        "Retrieve your private operator link: node scripts/host-link.js",
+      );
       console.log(
         config.requirePhoneToken
           ? "Phone pairing: QR / full phone link required."
