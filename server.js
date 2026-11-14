@@ -340,6 +340,7 @@ export function createRangeServer({
         }
         if (
           [
+            "response-shown",
             "reference",
             "mode",
             "pattern",
@@ -403,6 +404,25 @@ export function createRangeServer({
           ["start", "apply", "cancel", "clear"].includes(m.action)
         )
           send(session.host, { type: "zero-request", action: m.action });
+        if (
+          m.type === "response-request" &&
+          [
+            "chart-low",
+            "chart-mid",
+            "chart-high",
+            "dark",
+            "gray",
+            "bright",
+            "cancel",
+          ].includes(m.step) &&
+          typeof m.id === "string" &&
+          m.id.length < 80
+        )
+          send(session.host, {
+            type: "response-request",
+            step: m.step,
+            id: m.id,
+          });
         if (m.type === "alignment-changed")
           send(session.host, { type: "alignment-changed" });
         if (m.type === "calibration-request" && typeof m.active === "boolean")

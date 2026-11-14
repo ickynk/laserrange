@@ -1,3 +1,4 @@
+import { drawResponse } from "./core/response-calibration.js";
 import {
   isReactive,
   isSteel,
@@ -893,12 +894,16 @@ $("stage").addEventListener("pointerdown", (e) => {
   )
     recordShot({ ...point(e), time: now(), confidence: "review" }, true);
 });
+let responsePattern = null;
 function calibrationPattern() {
+  if (responsePattern)
+    return drawResponse($("calibration"), responsePattern.step);
   if (diagnosticPoint !== null)
     return drawTestPoint($("calibration"), diagnosticPoint);
   (zeroPattern ? drawZero : drawCalibration)($("calibration"));
 }
 $("calibrate").onclick = () => {
+  responsePattern = null;
   diagnosticPoint = null;
   health.interrupt("Calibration opened during test.", false);
   cancelZero();
@@ -912,6 +917,7 @@ $("calibrate").onclick = () => {
   channel?.send({ type: "pattern", active: true });
 };
 $("stopCalibration").onclick = () => {
+  responsePattern = null;
   health.interrupt("Placement display closed before finishing.");
   cancelZero();
   zeroPattern = false;
@@ -1623,6 +1629,20 @@ async function connectHost(explicitToken) {
         clearAllZeros();
       })
       .on("zero-request", (m) => zeroAction(m.action))
+      .on("response-request", (m) => {
+        if (m.step === "cancel") {
+          responsePattern = null;
+          if (calibrating) $("calibrate").click();
+          return;
+        }
+        if (running || zeroSession) return;
+        $("calibrate").click();
+        responsePattern = { step: m.step, id: m.id };
+        calibrationPattern();
+        if (projection?.connected)
+          projection.send({ type: "response-pattern", ...responsePattern });
+        else channel?.send({ type: "response-shown", ...responsePattern });
+      })
       .on("calibration-request", (m) => {
         $(m.active ? "calibrate" : "stopCalibration").click();
       })
@@ -1825,6 +1845,7 @@ function configureProjection() {
     youtubeId: youtubeId($("youtubeUrl").value),
     calibrating,
     zero: zeroPattern,
+    responsePattern,
     diagnosticPoint,
     offset: channel?.offset || 0,
   });
@@ -1877,6 +1898,8 @@ async function simulatorAction(m) {
   }
 }
 function onProjectionMessage(m) {
+  if (m.type === "response-shown" && responsePattern?.id === m.id)
+    channel?.send(m);
   if (m.type === "voice-result" && running && m.runId === started)
     voiceResult(m.id, m.result);
   if (m.type === "simulator-action") simulatorAction(m);

@@ -1,3 +1,4 @@
+import { drawResponse } from "./core/response-calibration.js";
 import { drawTestPoint } from "./core/range-health.js";
 import { applyRangeCommand } from "./core/range-command.js";
 import { Magazine, showMagazine } from "./core/magazine.js";
@@ -199,6 +200,10 @@ async function configure(m) {
       drawTestPoint($("pattern"), m.diagnosticPoint);
     else (zeroPattern ? drawZero : drawCalibration)($("pattern"));
   }
+  if (calibrating && m.responsePattern) {
+    drawResponse($("pattern"), m.responsePattern.step);
+    send({ type: "response-shown", ...m.responsePattern });
+  }
   $("impacts").replaceChildren();
   ready = true;
   updateInput();
@@ -263,6 +268,14 @@ async function handle(m) {
       break;
     case "clock":
       offset = m.offset || 0;
+      break;
+    case "response-pattern":
+      if (calibrating) {
+        drawResponse($("pattern"), m.step);
+        requestAnimationFrame(() =>
+          send({ type: "response-shown", step: m.step, id: m.id }),
+        );
+      }
       break;
     case "calibration":
       stop();

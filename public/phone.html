@@ -129,7 +129,20 @@
               <option value="red">Red</option>
               <option value="green">Green</option>
             </select></label
-          ><button id="baseline">Capture 3-second baseline</button
+          ><button id="responseStart">Guided color / laser calibration</button
+          ><button id="responseCancel" hidden>Cancel guided calibration</button
+          ><button id="responseConfirm" hidden>I fired exactly 3 pulses</button>
+          <p id="responseStatus" role="status">
+            Recommended: measure screen response, then train on dark, gray and
+            bright backgrounds.
+          </p>
+          <label
+            ><input type="checkbox" id="responseExposure" checked />Allow guided
+            calibration to reduce exposure compensation if the image clips
+            (supported cameras only)</label
+          >
+          <p id="responseReport" class="hint"></p>
+          <button id="baseline">Capture 3-second baseline</button
           ><label
             >Sensitivity threshold<input
               id="threshold"

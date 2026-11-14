@@ -1,5 +1,15 @@
+import {
+  lowerExposure,
+  measureResponse,
+  responseThreshold,
+} from "./core/response-calibration.js";
 import { installCameraControls } from "./core/camera-controls.js";
-import { cameraAdvisory, sanitizeCameraHealth } from "./core/camera-health.js";
+import {
+  cameraAdvisory,
+  sanitizeCameraHealth,
+  cameraCapabilities,
+  applyCameraSettings,
+} from "./core/camera-health.js";
 import { VoiceControl } from "./core/voice-control.js";
 import { VideoPulseFilter } from "./core/video-filter.js";
 import {
@@ -135,6 +145,7 @@ function ready(value) {
   $("arm").textContent = value ? "Detection armed" : "Arm detection";
 }
 function invalidate(reason, { keepCorners = false } = {}) {
+  cancelResponse();
   videoFilter.reset();
   autoUntil = 0;
   resumeDetection = false;
@@ -165,7 +176,7 @@ function invalidate(reason, { keepCorners = false } = {}) {
 function refreshSensitivity() {
   videoFilter.reset();
   referenceHistory = [];
-  if (!mapping || !baselineDone || testing) return;
+  if (!mapping || !baselineDone || testing || responseRun) return;
   adaptingUntil = performance.now() + 900;
   channel?.send({ type: "sensitivity", active: true });
   adaptationFrames = [];
@@ -237,6 +248,16 @@ $("connect").onclick = () => {
       channel.send({ type: "camera-control-result", id: m.id, ...result });
     })
     .on("reference", receiveReference)
+    .on("response-shown", (m) => {
+      if (
+        responseRun?.phase === "wait" &&
+        responseRun.id === m.id &&
+        responseRun.step === m.step
+      ) {
+        responseRun.phase = "settle";
+        responseRun.until = performance.now() + 2200;
+      }
+    })
     .on("mode", (m) => {
       if (mode !== m.mode) {
         mode = m.mode;
@@ -245,8 +266,15 @@ $("connect").onclick = () => {
     })
     .on("pattern", (m) => {
       clearTimeout(patternTimer);
+      if (responseRun && responseRun.phase !== "wait")
+        cancelResponse(
+          "Calibration display changed. Alignment retained; restart guided calibration.",
+        );
       patternActive = m.active === true;
       if (!patternActive) {
+        cancelResponse(
+          "Guided calibration interrupted. Retry when the projector is ready.",
+        );
         autoUntil = 0;
         autoRequested = false;
         $("alignmentStatus").textContent =
@@ -629,6 +657,9 @@ $("laserColor").onchange = () => {
   });
 };
 $("threshold").oninput = () => {
+  cancelResponse(
+    "Manual sensitivity selected. Run the pulse check before arming.",
+  );
   manualThreshold = Number($("threshold").value);
   validatedThreshold = manualThreshold;
   detector.threshold = manualThreshold;
@@ -648,6 +679,7 @@ $("baseline").onclick = () => {
   notify("Capturing baseline for 3 seconds. Do not fire.");
 };
 $("test").onclick = () => {
+  if (responseRun) return;
   if (!baselineDone) return notify("Capture a baseline first.");
   ready(false);
   testCount = 0;
@@ -674,10 +706,238 @@ $("arm").onclick = () => {
   );
 };
 $("disarm").onclick = () => {
+  cancelResponse("Guided calibration cancelled.");
   resumeDetection = false;
   ready(false);
   notify("Detection disarmed.");
 };
+
+// Guided response calibration never changes geometric alignment or shooter zero.
+let responseRun = null;
+const responseOrder = [
+  "chart-low",
+  "chart-mid",
+  "chart-high",
+  "dark",
+  "gray",
+  "bright",
+];
+function responseMessage(message) {
+  $("responseStatus").textContent = message;
+}
+function cancelResponse(message) {
+  if (!responseRun) return;
+  responseRun = null;
+  channel?.send({
+    type: "response-request",
+    step: "cancel",
+    id: crypto.randomUUID(),
+  });
+  $("responseCancel").hidden = true;
+  $("responseConfirm").hidden = true;
+  clearInterval(responseWatch);
+  if (message) responseMessage(message);
+}
+let responseWatch;
+function responseStep(index) {
+  Object.assign(responseRun, {
+    index,
+    step: responseOrder[index],
+    id: crypto.randomUUID(),
+    phase: "wait",
+    until: performance.now() + 8000,
+    frames: [],
+    hits: 0,
+  });
+  $("responseConfirm").hidden = true;
+  responseMessage(
+    `Step ${index + 1}/6: ${responseRun.step}. Hold fire while the display and exposure settle.`,
+  );
+  channel.send({
+    type: "response-request",
+    step: responseRun.step,
+    id: responseRun.id,
+  });
+}
+$("responseStart").onclick = () => {
+  if (
+    !connected ||
+    !mapping ||
+    !stream ||
+    document.hidden ||
+    voiceRunId ||
+    cameraControls.busy
+  )
+    return notify(
+      "Connect and align the running camera; end the session before guided calibration.",
+    );
+  invalidate(null, { keepCorners: true });
+  manualThreshold = null;
+  responseRun = { measurements: [], total: 0, exposureAttempts: 0 };
+  $("responseReport").textContent = "";
+  $("responseCancel").hidden = false;
+  responseStep(0);
+  responseWatch = setInterval(() => {
+    if (!responseRun) return;
+    if (
+      performance.now() - lastCameraFrame > 2500 ||
+      performance.now() > responseRun.until + 3000
+    )
+      cancelResponse(
+        "Calibration timed out or camera stopped. Alignment retained; retry with a live projector and camera.",
+      );
+  }, 500);
+};
+$("responseCancel").onclick = () =>
+  cancelResponse("Cancelled. Alignment retained; detection remains disarmed.");
+$("responseConfirm").onclick = () => {
+  const r = responseRun;
+  if (!r || r.phase !== "pulses") return;
+  if (r.hits !== 3) {
+    cancelResponse(
+      `Expected 3 pulses, detected ${r.hits}. Calibration NOT qualified. Check exposure, laser visibility and pulse duration, then retry. No automatic sensitivity increase applied.`,
+    );
+    return;
+  }
+  r.phase = "quiet";
+  r.until = performance.now() + 3500;
+  r.quietAt = performance.now() + 700;
+  $("responseConfirm").hidden = true;
+  responseMessage(
+    "Three pulses counted. Hold fire for the no-fire validation.",
+  );
+};
+function reduceResponseExposure(r, time) {
+  if (!$("responseExposure").checked || r.exposureAttempts >= 3) return false;
+  const track = stream?.getVideoTracks()[0];
+  const { supported, settings } = cameraCapabilities(track);
+  const cap = supported.exposureCompensation,
+    current = settings.exposureCompensation;
+  const next = lowerExposure(cap, current);
+  if (next === null) return false;
+  r.phase = "exposure";
+  r.until = time + 10000;
+  r.exposureAttempts++;
+  responseMessage(
+    "Clipping detected. Reducing supported camera exposure; all measurements and pulse checks will restart.",
+  );
+  applyCameraSettings(track, { exposureCompensation: next })
+    .then(() => {
+      cameraControls.refresh();
+      if (responseRun !== r) return;
+      if (stream?.getVideoTracks()[0] !== track) throw Error("Camera changed");
+      r.measurements = [];
+      r.total = 0;
+      responseStep(0);
+    })
+    .catch((e) => {
+      if (responseRun === r)
+        cancelResponse(
+          `Exposure could not be verified: ${e.message}. Detection remains disarmed; check camera settings and retry.`,
+        );
+    });
+  return true;
+}
+
+function processResponse(frame, time) {
+  const r = responseRun;
+  if (r.phase === "wait" || r.phase === "exposure") return;
+  if (r.phase === "settle") {
+    if (time < r.until) return;
+    r.phase = "measure";
+    r.sampleAt = time - 35;
+    r.until = time + 1400;
+    r.frames = [];
+  }
+  if (r.phase === "measure") {
+    if (r.frames.length < 40 && time - r.sampleAt >= 35) {
+      r.frames.push(new Uint8ClampedArray(frame));
+      r.sampleAt = time;
+    }
+    if (time < r.until) return;
+    try {
+      const measurement = measureResponse(r.frames, $("laserColor").value);
+      r.measurements.push(measurement);
+      $("responseReport").textContent = r.measurements
+        .map(
+          (m, i) =>
+            `${responseOrder[i]}: noise ${m.noise.toFixed(1)}, brightness ${m.brightness.toFixed(0)}/255, clipped ${(100 * m.clipped).toFixed(1)}%`,
+        )
+        .join(" · ");
+      r.frames = [];
+      if (r.index < 3) {
+        if (r.index === 2) r.threshold = responseThreshold(r.measurements);
+        responseStep(r.index + 1);
+        return;
+      }
+      if (measurement.clipped > 0.15 && reduceResponseExposure(r, time)) return;
+      if (measurement.clipped > 0.15)
+        throw Error(
+          "Too much clipped light on this background. Lower camera exposure or projector brightness and retry.",
+        );
+      detector.color = $("laserColor").value;
+      if (responseThreshold([measurement]) > r.threshold)
+        throw Error(
+          "Background noise increased beyond the measured threshold. Let exposure settle and retry",
+        );
+      detector.threshold = r.threshold;
+      detector.reset();
+      detector.previous = new Uint8ClampedArray(frame);
+      r.phase = "pulses";
+      r.until = time + 90000;
+      responseMessage(
+        `${r.step}: fire exactly 3 separate pulses near the crosshair, spaced at least one second apart, then confirm. Detected 0/3. Threshold ${detector.threshold}.`,
+      );
+      $("responseConfirm").hidden = false;
+    } catch (e) {
+      cancelResponse(
+        e.message + " Alignment retained; retry guided calibration.",
+      );
+    }
+    return;
+  }
+  const hits = detector.detect(frame, null, time, { temporalOnly: true });
+  if (r.phase === "pulses") {
+    r.hits += hits.length;
+    if (hits.length)
+      responseMessage(
+        `${r.step}: detected ${r.hits}/3 pulses. Confirm only after firing exactly three. Threshold ${detector.threshold}.`,
+      );
+  } else if (r.phase === "quiet") {
+    if (time >= r.quietAt && hits.length) {
+      cancelResponse(
+        "Unexpected detection during the no-fire check. Calibration NOT qualified. Adjust exposure or remove reflections and retry.",
+      );
+      return;
+    }
+    if (time >= r.until) {
+      r.total += r.hits;
+      if (r.index < 5) {
+        responseStep(r.index + 1);
+        return;
+      }
+      const threshold = detector.threshold;
+      cancelResponse();
+      detector.reset();
+      detector.threshold = threshold;
+      baselineDone = true;
+      testCount = 3;
+      validatedThreshold = threshold;
+      $("threshold").value = threshold;
+      $("thresholdValue").textContent = threshold;
+      $("testStatus").textContent =
+        "9 / 9 guided pulses verified · three no-fire checks passed";
+      $("arm").disabled = !connected;
+      responseMessage(
+        `Calibration complete. Threshold ${threshold}; dark, gray and bright checks passed. Arm detection, then run a counted moving/video test. Video rejection counts remain visible below.`,
+      );
+      notify(
+        "Guided calibration passed. Alignment and shooter zero retained. Arm detection when ready.",
+      );
+    }
+  }
+}
+
 function processFrame() {
   const video = $("camera");
   if (
@@ -712,7 +972,9 @@ function processFrame() {
       out.data,
     );
     rectCtx.putImageData(out, 0, 0);
-    if (baselineUntil) {
+    if (responseRun) {
+      processResponse(out.data, performance.now());
+    } else if (baselineUntil) {
       if (performance.now() < baselineUntil) {
         if (baselineFrames.length < 90)
           baselineFrames.push(new Uint8ClampedArray(out.data));
@@ -861,6 +1123,9 @@ function processFrame() {
 // Geometry and pulse qualification survive a transport or browser visibility pause.
 let resumeDetection = false;
 function pauseDetection(message) {
+  cancelResponse(
+    "Guided calibration interrupted. Restore camera / connection and retry.",
+  );
   videoFilter.reset();
   resumeDetection = resumeDetection || armed;
   ready(false);

@@ -160,3 +160,41 @@ End the course and any hardware test before using recovery controls. On the oper
 6. Confirm controls are disabled during a live course and return afterward. Test a brief Wi-Fi interruption and record recovery time and any lost calibration or unacknowledged command.
 
 Camera-reported FPS is distinct from measured processing FPS. A wake-lock indicator reports the browser's current lock, not a guarantee against OS suspension. Hardware focus changes can alter apparent geometry: inspect alignment and realign if necessary. Desktop mocked settings and synthetic camera tests do not establish iPhone/Android control availability or optical performance.
+
+## Guided color / laser calibration
+
+After alignment, select **Guided color / laser calibration** on the phone. Keep
+both pages foregrounded and hold fire during the stepped RGB/grayscale chart.
+The projector must acknowledge each display before sampling starts. Each step
+settles for 2.2 seconds, then samples for 1.4 seconds. Excess brightness drift,
+insufficient frames, connection loss or camera stalls leave detection disarmed.
+
+On each dark, gray and bright background, fire **exactly three separate pulses**
+near the crosshair, at least one second apart. Select **I fired exactly 3 pulses**.
+A mismatch fails qualification; do not keep firing until the count reaches three.
+Hold fire during each subsequent no-fire check. All nine pulses and all three
+quiet checks must pass before Arm becomes available. The measured threshold is
+held fixed throughout the laser checks and later scene changes. Alignment and
+screen zero are retained. The older baseline and manual sensitivity remain available.
+
+This measures temporal selected-color noise across the chart brightness steps,
+brightness stability and clipping. It does not invert a camera color matrix,
+or learn a video classifier. With the labeled exposure option enabled, a clipped
+laser-check background can reduce supported exposure compensation by a bounded
+step, verified through the camera settings API, up to three attempts. Every
+change restarts all measurements and pulse checks. Unsupported, rejected or
+ignored settings do not qualify. Other hardware settings are untouched. If clipped or
+unstable, cancel, return to the range and use supported camera exposure controls
+(or reduce projector brightness), then rerun. Camera exposure controls remain
+browser/hardware dependent. The controlled laser checks qualify this threshold;
+they do not prove detection against every video frame.
+
+Return: phone/browser, laser color/device, threshold, any failed stage and its
+exact message, and detected/actual counts for 100 emissions in stationary 3D,
+moving 3D and the same video segment. Record no-fire false positives for 100
+seconds in each mode, duplicates, and video candidate/accepted/rejection counts.
+Keep Balanced and the same pulse-duration setting for this comparison. If the
+phone candidate count rises but video acceptance does not, report the rejection
+reasons; if neither rises, report pulse visibility in the camera preview. Do not
+change sensitivity mid-test. Software camera tests do not establish hardware
+recall or a false-positive rate.
