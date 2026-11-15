@@ -183,3 +183,105 @@ test("Source-explained impact feedback cannot hold a track lit and suppress the 
   for (const t of [40, 60, 80]) assert.equal(d.detect(mark, mark, t).length, 0);
   assert.equal(d.detect(laser, mark, 100).length, 1);
 });
+
+test("Fast screen-wide jumps, long streaks and disconnected tails remain one onset for red and green", () => {
+  for (const color of ["red", "green"])
+    for (const source of [true, false]) {
+      const d = new LaserDetector(w, h);
+      d.color = color;
+      d.threshold = 37;
+      const blank = frame(),
+        ref = source ? blank : null,
+        hits = [];
+      d.detect(blank, ref, 0);
+      const first = d.detect(frame(20, 30, 220, color), ref, 20);
+      hits.push(...first);
+      for (let f = 0; f < 15; f++) {
+        const trail = frame(40 + f * 6, 40, 180, color);
+        // A long thin streak fails the compact-spot onset shape checks.
+        for (let x = 35; x < 130; x++)
+          for (let y = 45; y < 47; y++)
+            trail[(y * w + x) * 4 + (color === "red" ? 0 : 1)] = 160;
+        hits.push(...d.detect(trail, ref, 40 + f * 20));
+      }
+      // Brief dark flicker followed by a distant renewed tail is still one pulse.
+      d.detect(blank, ref, 340);
+      hits.push(...d.detect(frame(130, 65, 150, color), ref, 360));
+      assert.equal(hits.length, 1, `${color}/${source}`);
+      assert.equal(hits[0].x, 21 / (w - 1));
+      assert.equal(hits[0].y, 31 / (h - 1));
+      for (const t of [380, 400, 420]) d.detect(blank, ref, t);
+      const next = d.detect(frame(100, 20, 220, color), ref, 440);
+      assert.equal(next.length, 1);
+      assert.equal(next[0].x, 101 / (w - 1));
+    }
+});
+test("A long emission has no arbitrary timeout that releases its moving tail", () => {
+  const d = new LaserDetector(w, h),
+    blank = frame();
+  d.detect(blank, blank, 0);
+  assert.equal(d.detect(frame(20), blank, 20).length, 1);
+  for (let t = 40; t < 1500; t += 20)
+    assert.equal(d.detect(frame(20 + ((t / 20) % 100)), blank, t).length, 0);
+  d.reset();
+  d.detect(blank, blank, 1600);
+  assert.equal(d.detect(frame(60), blank, 1620).length, 1);
+});
+
+test("Video pipeline publishes only the first flash when a pulse jumps beyond the old tracking radius", () => {
+  for (const color of ["red", "green"]) {
+    const d = new LaserDetector(w, h),
+      filter = new VideoPulseFilter(w, h),
+      out = [];
+    d.color = color;
+    d.threshold = 37;
+    const blank = frame(),
+      options = {
+        color,
+        threshold: 37,
+        profile: "balanced",
+        maxDuration: 600,
+        image: () => "onset",
+      };
+    for (let f = 0; f < 30; f++) {
+      const time = f * 20,
+        data =
+          f === 1
+            ? frame(20, 30, 220, color)
+            : f > 1 && f < 20
+              ? frame(40 + f * 5, 40, 160, color)
+              : blank;
+      out.push(
+        ...filter.process(
+          data,
+          d.detect(data, null, time, { temporalOnly: true }),
+          time,
+          options,
+        ),
+      );
+    }
+    assert.equal(out.length, 1, color);
+    assert.equal(out[0].time, 20);
+    assert.equal(out[0].x, 21 / (w - 1));
+    assert.equal(out[0].image, "onset");
+  }
+});
+
+test("100 streaking emissions at 30fps keep one onset each without losing subsequent shots", () => {
+  const d = new LaserDetector(w, h),
+    blank = frame();
+  d.threshold = 37;
+  d.detect(blank, blank, 0);
+  const hits = [];
+  for (let shot = 0; shot < 100; shot++) {
+    const t = 33 + shot * 300;
+    hits.push(...d.detect(frame(20, 30), blank, t));
+    hits.push(...d.detect(frame(70, 40), blank, t + 33));
+    hits.push(...d.detect(frame(130, 60), blank, t + 66));
+    for (const delta of [99, 132, 165]) d.detect(blank, blank, t + delta);
+  }
+  assert.equal(hits.length, 100);
+  assert.ok(
+    hits.every((hit) => hit.x === 21 / (w - 1) && hit.y === 31 / (h - 1)),
+  );
+});

@@ -126,6 +126,7 @@ test("Red and green pulses detected once; persistent spot does not retrigger", (
     assert.ok(Math.abs(shots[0].x - 0.409) < 0.01);
     assert.equal(d.detect(pulse, blank, 400).length, 0);
     d.detect(blank, blank, 500);
+    d.detect(blank, blank, 540);
     assert.equal(d.detect(pulse, blank, 700).length, 1);
   }
 });

@@ -100,3 +100,46 @@ export function followPulse(
     }
   return best;
 }
+
+// Continuation is deliberately less shape-restrictive than onset: exposure can
+// turn a compact first flash into a long streak or disconnected islands. Broad
+// scene changes are not pulse evidence. Source-explained impact marks are not
+// evidence either, so persistent marks cannot keep detection latched forever.
+export function pulseActivity(
+  frame,
+  before,
+  width,
+  height,
+  color,
+  threshold,
+  { reference = null, gain = 1, offset = 0 } = {},
+) {
+  const selected = color === "green" ? 1 : 0;
+  const chroma = (a, i) =>
+    a[i + selected] - Math.max(a[i + (selected ? 0 : 1)], a[i + 2]);
+  let count = 0;
+  const limit = Math.max(50, width * height * 0.02);
+  for (let y = 2; y < height - 2; y++)
+    for (let x = 2; x < width - 2; x++) {
+      const i = (y * width + x) * 4,
+        c = chroma(frame, i);
+      if (
+        frame[i + selected] < 40 ||
+        c < threshold * 0.5 ||
+        c - chroma(before, i) < threshold * 0.4
+      )
+        continue;
+      if (reference) {
+        let expected = -255;
+        for (let dy = -2; dy <= 2; dy++)
+          for (let dx = -2; dx <= 2; dx++)
+            expected = Math.max(
+              expected,
+              chroma(reference, ((y + dy) * width + x + dx) * 4),
+            );
+        if (c - (gain * expected + offset) < threshold * 0.4) continue;
+      }
+      if (++count > limit) return false;
+    }
+  return count >= 2;
+}

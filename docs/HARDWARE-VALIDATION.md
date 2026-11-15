@@ -198,3 +198,26 @@ phone candidate count rises but video acceptance does not, report the rejection
 reasons; if neither rises, report pulse visibility in the camera preview. Do not
 change sensitivity mid-test. Software camera tests do not establish hardware
 recall or a false-positive rate.
+
+## Moving-pulse duplicate retest
+
+The detector now treats an emission as a screen-wide pulse instead of following
+only a small neighborhood. It preserves the first accepted compact flash and
+suppresses later positions, fragmented tails and long thin streaks. Rearming
+requires at least two dark observations spanning 40 ms; a single dark frame does
+not rearm. There is no fixed elapsed-pulse timeout that releases a lit tail.
+Source-explained impact marks are excluded from continuation. Broad color changes
+(over 2% of the rectified image) are treated as background, not laser evidence.
+
+Repeat 100 emissions stationary, then 100 with deliberate muzzle movement, in
+3D and video. Record total detections, duplicates, misses, threshold, frame rate
+and whether the dot remains at the beginning of each visible streak. Include
+spaced shots and faster pairs. Distinct same-color pulses with no camera-visible
+dark interval cannot reliably be separated; this is one pulse stream per phone,
+not simultaneous-shooter attribution. YouTube color motion remains ambiguous
+without source pixels; verify recall as well as duplicate suppression.
+
+If the first camera exposure already contains only a smear, the software cannot
+recover an earlier unsampled strike or infer which end came first. It retains
+the earliest accepted compact observation; do not interpret this as exact laser
+onset timing below the camera's exposure/frame interval.

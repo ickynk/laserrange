@@ -42,7 +42,8 @@ for (const separate of [false, true])
         canvas.width = 960;
         canvas.height = 540;
         const ctx = canvas.getContext("2d", { willReadFrequently: true });
-        let source = null;
+        let source = null,
+          pulseFrame = 0;
         // Explicit frame requests keep the synthetic source deterministic in headless Chromium.
         const stream = canvas.captureStream(0);
         const track = stream.getVideoTracks()[0];
@@ -75,8 +76,12 @@ for (const separate of [false, true])
           if (window.testPulse) {
             ctx.fillStyle = "#ff1010";
             const point = window.pulsePosition || [42, 42];
-            ctx.fillRect(point[0], point[1], 8, 8);
-          }
+            // Hold onset for capture, then move well beyond the former tracking
+            // radius and draw a long tail. This must still count as one pulse.
+            const shift = window.streakPulses && pulseFrame++ >= 4 ? 180 : 0;
+            ctx.fillRect(point[0] + shift, point[1], 8, 8);
+            if (shift) ctx.fillRect(point[0] + shift, point[1] + 20, 220, 4);
+          } else pulseFrame = 0;
           track.requestFrame();
         }, 20);
       });
@@ -95,6 +100,7 @@ for (const separate of [false, true])
         "Automatically aligned",
       );
       await expect(phone.locator("#cornerStatus")).toContainText("aligned");
+      await phone.evaluate(() => (window.streakPulses = true));
       await phone.locator("#responseStart").click();
       if (!separate) {
         await expect(phone.locator("#responseStatus")).toContainText(

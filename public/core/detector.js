@@ -1,4 +1,4 @@
-import { followPulse } from "./pulse-track.js";
+import { pulseActivity } from "./pulse-track.js";
 // Pure image-processing core. RGB values are 0–255; coordinates are normalized.
 export function chroma(data, i, color) {
   return color === "green"
@@ -15,9 +15,9 @@ export class LaserDetector {
     this.reset();
   }
   reset() {
+    this.pulse = null;
     this.previous = null;
     this.lastShot = -Infinity;
-    this.tracks = [];
     this.lastFrame = null;
     this.suppressed = 0;
     this.background = null;
@@ -41,8 +41,8 @@ export class LaserDetector {
       15,
       Math.min(160, (values[Math.floor(values.length * 0.999)] || 0) + 12),
     );
+    this.pulse = null;
     this.previous = null;
-    this.tracks = [];
     this.lastFrame = null;
     return this.threshold;
   }
@@ -50,8 +50,8 @@ export class LaserDetector {
   // the user's pulse check. Motion must not make a validated laser invisible.
   adapt(frames, validatedThreshold) {
     if (frames.length < 10) throw Error("Not enough adaptation frames.");
+    this.pulse = null;
     // Scene motion is not sensor noise. Keep the user's qualified threshold.
-    this.tracks = [];
     this.lastFrame = null;
     this.threshold = validatedThreshold;
     this.previous = new Uint8ClampedArray(frames.at(-1));
@@ -105,37 +105,50 @@ export class LaserDetector {
       !this.previous ||
       (this.lastFrame !== null && time - this.lastFrame > 750)
     ) {
-      this.tracks = [];
+      this.pulse = null;
       this.lastFrame = time;
       this.previous = new Uint8ClampedArray(frame);
       return [];
     }
     this.lastFrame = time;
+    // One emission owns the detector until a measured dark interval. The
+    // foreground can travel anywhere, not just within the old tracking radius.
+    // Keep the onset frame fixed; never let the moving tail become a new shot.
+    if (this.pulse) {
+      const pulse = this.pulse;
+      if (
+        pulse.darkSince !== null &&
+        pulse.darkFrames >= 2 &&
+        time - pulse.darkSince >= 40
+      ) {
+        this.pulse = null;
+      } else {
+        const active = pulseActivity(
+          frame,
+          pulse.before,
+          w,
+          h,
+          this.color,
+          this.threshold,
+          {
+            reference: temporalOnly ? null : reference,
+            gain: this.gain,
+            offset: this.offset,
+          },
+        );
+        if (active) {
+          pulse.darkSince = null;
+          pulse.darkFrames = 0;
+        } else {
+          pulse.darkSince ??= time;
+          pulse.darkFrames++;
+        }
+        this.previous.set(frame);
+        this.suppressed++;
+        return [];
+      }
+    }
     const before = this.previous;
-    const radius = Math.max(4, w * 0.025);
-    this.tracks = this.tracks.filter((t) => {
-      if (t.absent !== null && time - t.absent >= 35) return false;
-      const spot = followPulse(
-        frame,
-        t.before,
-        t,
-        w,
-        h,
-        this.color,
-        this.threshold,
-        radius,
-        {
-          reference: temporalOnly ? null : reference,
-          gain: this.gain,
-          offset: this.offset,
-        },
-      );
-      if (spot) {
-        Object.assign(t, spot);
-        t.absent = null;
-      } else t.absent ??= time;
-      return true;
-    });
     const mask = new Uint8Array(w * h),
       selected = this.color === "red" ? 0 : 1;
     for (let y = 2; y < h - 2; y++)
@@ -226,28 +239,17 @@ export class LaserDetector {
       else grouped.push({ ...p });
     }
     this.suppressed += components.length - grouped.length;
-    const fresh = grouped.filter((p) => {
-      if (p.pixels > Math.max(50, w * h * 0.0015)) return false;
-      const x = p.x * (w - 1),
-        y = p.y * (h - 1);
-      if (this.tracks.some((t) => Math.hypot(t.x - x, t.y - y) <= radius)) {
-        this.suppressed++;
-        return false;
-      }
-      return true;
-    });
-    // Snapshot once, shared by this frame's bounded tracks. Never refresh the
-    // baseline while the laser is lit, which would turn its tail into a new shot.
-    if (fresh.length && this.tracks.length < 8) {
-      const baseline = new Uint8ClampedArray(before);
-      for (const p of fresh.slice(0, 8 - this.tracks.length))
-        this.tracks.push({
-          x: p.x * (w - 1),
-          y: p.y * (h - 1),
-          before: baseline,
-          absent: null,
-        });
-    }
+    const fresh = grouped.filter(
+      (p) => p.pixels <= Math.max(50, w * h * 0.0015),
+    );
+    // Share the pre-onset image for all continuation evidence. Coordinates in
+    // fresh remain immutable even if the light later jumps across the screen.
+    if (fresh.length)
+      this.pulse = {
+        before: new Uint8ClampedArray(before),
+        darkSince: null,
+        darkFrames: 0,
+      };
     this.previous.set(frame);
     // Ambiguous simultaneous blobs stay review-only; never arbitrarily choose a shooter.
     if (fresh.length) {
