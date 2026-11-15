@@ -792,11 +792,21 @@ $("responseCancel").onclick = () =>
   cancelResponse("Cancelled. Alignment retained; detection remains disarmed.");
 $("responseConfirm").onclick = () => {
   const r = responseRun;
+  if (r?.phase === "retry") {
+    detector.reset();
+    detector.threshold = r.threshold;
+    r.hits = 0;
+    r.phase = "retry-settle";
+    r.until = performance.now() + 1500;
+    $("responseConfirm").hidden = true;
+    responseMessage(
+      "Hold fire while this background settles, then repeat three pulses.",
+    );
+    return;
+  }
   if (!r || r.phase !== "pulses") return;
   if (r.hits !== 3) {
-    cancelResponse(
-      `Expected 3 pulses, detected ${r.hits}. Calibration NOT qualified. Check exposure, laser visibility and pulse duration, then retry. No automatic sensitivity increase applied.`,
-    );
+    retryResponse(r, r.hits > 3, `Expected 3 pulses, detected ${r.hits}.`);
     return;
   }
   r.phase = "quiet";
@@ -807,6 +817,20 @@ $("responseConfirm").onclick = () => {
     "Three pulses counted. Hold fire for the no-fire validation.",
   );
 };
+function retryResponse(r, increase, reason) {
+  const old = r.threshold;
+  const floor = responseThreshold(r.measurements.slice(0, 3));
+  r.threshold = increase
+    ? Math.min(180, old + Math.max(3, Math.ceil(old * 0.15)))
+    : Math.max(floor, old - Math.max(2, Math.ceil(old * 0.1)));
+  r.phase = "retry";
+  r.until = performance.now() + 90000;
+  $("responseConfirm").hidden = false;
+  $("responseConfirm").textContent = "Retry this background";
+  responseMessage(
+    `${reason} ${r.step} retained. Threshold ${old} → ${r.threshold}. Select Retry this background when ready. If counts stay wrong, check exposure and laser visibility.`,
+  );
+}
 function reduceResponseExposure(r, time) {
   if (!$("responseExposure").checked || r.exposureAttempts >= 3) return false;
   const track = stream?.getVideoTracks()[0];
@@ -841,7 +865,20 @@ function reduceResponseExposure(r, time) {
 
 function processResponse(frame, time) {
   const r = responseRun;
-  if (r.phase === "wait" || r.phase === "exposure") return;
+  if (r.phase === "wait" || r.phase === "exposure" || r.phase === "retry")
+    return;
+  if (r.phase === "retry-settle") {
+    if (time < r.until) return;
+    detector.previous = new Uint8ClampedArray(frame);
+    r.phase = "pulses";
+    r.until = time + 90000;
+    $("responseConfirm").hidden = false;
+    $("responseConfirm").textContent = "I fired exactly 3 pulses";
+    responseMessage(
+      `${r.step}: fire exactly 3 separate pulses, then confirm. Detected 0/3. Threshold ${r.threshold}.`,
+    );
+    return;
+  }
   if (r.phase === "settle") {
     if (time < r.until) return;
     r.phase = "measure";
@@ -889,6 +926,7 @@ function processResponse(frame, time) {
         `${r.step}: fire exactly 3 separate pulses near the crosshair, spaced at least one second apart, then confirm. Detected 0/3. Threshold ${detector.threshold}.`,
       );
       $("responseConfirm").hidden = false;
+      $("responseConfirm").textContent = "I fired exactly 3 pulses";
     } catch (e) {
       cancelResponse(
         e.message + " Alignment retained; retry guided calibration.",
@@ -905,9 +943,7 @@ function processResponse(frame, time) {
       );
   } else if (r.phase === "quiet") {
     if (time >= r.quietAt && hits.length) {
-      cancelResponse(
-        "Unexpected detection during the no-fire check. Calibration NOT qualified. Adjust exposure or remove reflections and retry.",
-      );
+      retryResponse(r, true, "Unexpected detection during the no-fire check.");
       return;
     }
     if (time >= r.until) {

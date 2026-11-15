@@ -116,6 +116,14 @@ export class LaserDetector {
     // Keep the onset frame fixed; never let the moving tail become a new shot.
     if (this.pulse) {
       const pulse = this.pulse;
+      // Unreferenced video colors can otherwise hold the screen-wide latch
+      // forever. Rebase after the supported pulse window, consuming this frame
+      // so recovery itself cannot emit a shot.
+      if (time - pulse.started > 1200) {
+        this.pulse = null;
+        this.previous.set(frame);
+        return [];
+      }
       if (
         pulse.darkSince !== null &&
         pulse.darkFrames >= 2 &&
@@ -247,6 +255,7 @@ export class LaserDetector {
     if (fresh.length)
       this.pulse = {
         before: new Uint8ClampedArray(before),
+        started: time,
         darkSince: null,
         darkFrames: 0,
       };

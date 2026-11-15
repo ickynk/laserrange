@@ -216,12 +216,12 @@ test("Fast screen-wide jumps, long streaks and disconnected tails remain one ons
       assert.equal(next[0].x, 101 / (w - 1));
     }
 });
-test("A long emission has no arbitrary timeout that releases its moving tail", () => {
+test("An emission within the supported duration keeps its moving tail suppressed", () => {
   const d = new LaserDetector(w, h),
     blank = frame();
   d.detect(blank, blank, 0);
   assert.equal(d.detect(frame(20), blank, 20).length, 1);
-  for (let t = 40; t < 1500; t += 20)
+  for (let t = 40; t < 1100; t += 20)
     assert.equal(d.detect(frame(20 + ((t / 20) % 100)), blank, t).length, 0);
   d.reset();
   d.detect(blank, blank, 1600);
@@ -284,4 +284,13 @@ test("100 streaking emissions at 30fps keep one onset each without losing subseq
   assert.ok(
     hits.every((hit) => hit.x === 21 / (w - 1) && hit.y === 31 / (h - 1)),
   );
+});
+
+test("Persistent unrelated camera color cannot permanently latch detection", () => {
+  const d = new LaserDetector(w, h),
+    blank = frame();
+  d.detect(blank, null, 0);
+  assert.equal(d.detect(frame(20), null, 20).length, 1);
+  for (let t = 40; t <= 1300; t += 20) d.detect(frame(100), null, t);
+  assert.equal(d.detect(frame(30), null, 1340).length, 1);
 });

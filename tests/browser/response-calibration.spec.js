@@ -113,10 +113,10 @@ for (const separate of [false, true])
         await phone.waitForTimeout(650);
         await phone.locator("#responseConfirm").click();
         await expect(phone.locator("#responseStatus")).toContainText(
-          "NOT qualified",
+          "retained",
         );
         await expect(phone.locator("#arm")).toBeDisabled();
-        await phone.locator("#responseStart").click();
+        await phone.locator("#responseConfirm").click();
       }
       for (const background of ["dark", "gray", "bright"]) {
         await expect(phone.locator("#responseStatus")).toContainText(
